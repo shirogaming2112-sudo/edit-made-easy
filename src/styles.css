@@ -119,6 +119,14 @@
   h1, h2, h3, h4 {
     font-family: "Poppins", sans-serif;
   }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  label[for],
+  summary,
+  select {
+    cursor: pointer;
+  }
 }
 
 @utility wizard-sidebar {

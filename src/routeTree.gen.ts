@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as HeadHuntingRouteImport } from './routes/head-hunting'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AttendanceRouteImport } from './routes/attendance'
 import { Route as AssessmentResultRouteImport } from './routes/assessment-result'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
+const HeadHuntingRoute = HeadHuntingRouteImport.update({
+  id: '/head-hunting',
+  path: '/head-hunting',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
+  '/head-hunting': typeof HeadHuntingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
+  '/head-hunting': typeof HeadHuntingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
+  '/head-hunting': typeof HeadHuntingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,8 +80,15 @@ export interface FileRouteTypes {
     | '/assessment-result'
     | '/attendance'
     | '/dashboard'
+    | '/head-hunting'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/assessment-result' | '/attendance' | '/dashboard'
+  to:
+    | '/'
+    | '/admin'
+    | '/assessment-result'
+    | '/attendance'
+    | '/dashboard'
+    | '/head-hunting'
   id:
     | '__root__'
     | '/'
@@ -80,6 +96,7 @@ export interface FileRouteTypes {
     | '/assessment-result'
     | '/attendance'
     | '/dashboard'
+    | '/head-hunting'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -88,10 +105,18 @@ export interface RootRouteChildren {
   AssessmentResultRoute: typeof AssessmentResultRoute
   AttendanceRoute: typeof AttendanceRoute
   DashboardRoute: typeof DashboardRoute
+  HeadHuntingRoute: typeof HeadHuntingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/head-hunting': {
+      id: '/head-hunting'
+      path: '/head-hunting'
+      fullPath: '/head-hunting'
+      preLoaderRoute: typeof HeadHuntingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -136,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssessmentResultRoute: AssessmentResultRoute,
   AttendanceRoute: AttendanceRoute,
   DashboardRoute: DashboardRoute,
+  HeadHuntingRoute: HeadHuntingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

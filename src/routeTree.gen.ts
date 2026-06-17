@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AttendanceRouteImport } from './routes/attendance'
+import { Route as AssessmentResultRouteImport } from './routes/assessment-result'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const AttendanceRoute = AttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssessmentResultRoute = AssessmentResultRouteImport.update({
+  id: '/assessment-result',
+  path: '/assessment-result',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
 }
@@ -51,20 +59,33 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/attendance' | '/dashboard'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/assessment-result'
+    | '/attendance'
+    | '/dashboard'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/attendance' | '/dashboard'
-  id: '__root__' | '/' | '/admin' | '/attendance' | '/dashboard'
+  to: '/' | '/admin' | '/assessment-result' | '/attendance' | '/dashboard'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/assessment-result'
+    | '/attendance'
+    | '/dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AssessmentResultRoute: typeof AssessmentResultRoute
   AttendanceRoute: typeof AttendanceRoute
   DashboardRoute: typeof DashboardRoute
 }
@@ -83,6 +104,13 @@ declare module '@tanstack/react-router' {
       path: '/attendance'
       fullPath: '/attendance'
       preLoaderRoute: typeof AttendanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assessment-result': {
+      id: '/assessment-result'
+      path: '/assessment-result'
+      fullPath: '/assessment-result'
+      preLoaderRoute: typeof AssessmentResultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -105,6 +133,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AssessmentResultRoute: AssessmentResultRoute,
   AttendanceRoute: AttendanceRoute,
   DashboardRoute: DashboardRoute,
 }

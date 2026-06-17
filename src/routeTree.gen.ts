@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as HeadHuntingRouteImport } from './routes/head-hunting'
 import { Route as DavaoHubRouteImport } from './routes/davao-hub'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ComplianceDocsURouteImport } from './routes/compliance-docs-u'
 import { Route as AttendanceRouteImport } from './routes/attendance'
 import { Route as AssessmentResultRouteImport } from './routes/assessment-result'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -30,6 +31,11 @@ const DavaoHubRoute = DavaoHubRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComplianceDocsURoute = ComplianceDocsURouteImport.update({
+  id: '/compliance-docs-u',
+  path: '/compliance-docs-u',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AttendanceRoute = AttendanceRouteImport.update({
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
+  '/compliance-docs-u': typeof ComplianceDocsURoute
   '/dashboard': typeof DashboardRoute
   '/davao-hub': typeof DavaoHubRoute
   '/head-hunting': typeof HeadHuntingRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
+  '/compliance-docs-u': typeof ComplianceDocsURoute
   '/dashboard': typeof DashboardRoute
   '/davao-hub': typeof DavaoHubRoute
   '/head-hunting': typeof HeadHuntingRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/assessment-result': typeof AssessmentResultRoute
   '/attendance': typeof AttendanceRoute
+  '/compliance-docs-u': typeof ComplianceDocsURoute
   '/dashboard': typeof DashboardRoute
   '/davao-hub': typeof DavaoHubRoute
   '/head-hunting': typeof HeadHuntingRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/assessment-result'
     | '/attendance'
+    | '/compliance-docs-u'
     | '/dashboard'
     | '/davao-hub'
     | '/head-hunting'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/assessment-result'
     | '/attendance'
+    | '/compliance-docs-u'
     | '/dashboard'
     | '/davao-hub'
     | '/head-hunting'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/assessment-result'
     | '/attendance'
+    | '/compliance-docs-u'
     | '/dashboard'
     | '/davao-hub'
     | '/head-hunting'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AssessmentResultRoute: typeof AssessmentResultRoute
   AttendanceRoute: typeof AttendanceRoute
+  ComplianceDocsURoute: typeof ComplianceDocsURoute
   DashboardRoute: typeof DashboardRoute
   DavaoHubRoute: typeof DavaoHubRoute
   HeadHuntingRoute: typeof HeadHuntingRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compliance-docs-u': {
+      id: '/compliance-docs-u'
+      path: '/compliance-docs-u'
+      fullPath: '/compliance-docs-u'
+      preLoaderRoute: typeof ComplianceDocsURouteImport
       parentRoute: typeof rootRouteImport
     }
     '/attendance': {
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AssessmentResultRoute: AssessmentResultRoute,
   AttendanceRoute: AttendanceRoute,
+  ComplianceDocsURoute: ComplianceDocsURoute,
   DashboardRoute: DashboardRoute,
   DavaoHubRoute: DavaoHubRoute,
   HeadHuntingRoute: HeadHuntingRoute,

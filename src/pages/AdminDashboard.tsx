@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { LogOut, Search, Download, FileText, User, Upload, Star, RefreshCw, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
 import jsPDF from 'jspdf';
 import Logo from '@/components/Logo';

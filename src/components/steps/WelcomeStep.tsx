@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { useEffect, useRef, useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
 import Logo from '@/components/Logo';

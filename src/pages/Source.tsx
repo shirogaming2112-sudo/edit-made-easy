@@ -7,11 +7,13 @@ import { setSourcing, setSourceName } from '@/lib/headhunting';
 const Source = () => {
   const { name } = useParams<{ name: string }>();
   const [ready, setReady] = useState(false);
+  const [ref, setRef] = useState('');
 
   useEffect(() => {
     if (!name) return;
     setSourcing(true);
     setSourceName(name);
+    setRef(new URLSearchParams(window.location.search).get('ref') || '');
     setReady(true);
     return () => {
       setSourcing(false);
@@ -20,9 +22,6 @@ const Source = () => {
   }, [name]);
 
   if (!name) return <NotFound />;
-
-  const ref = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('ref') || '') : '';
-
   if (!ready) return null;
   return <Index defaultReferralLink={ref} />;
 };

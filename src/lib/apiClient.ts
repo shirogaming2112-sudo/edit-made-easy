@@ -1,0 +1,633 @@
+/**
+ * API client for the Cyberbacker FastAPI backend.
+ *
+ * Configure the base URL via the `VITE_API_BASE_URL` environment variable in `.env`.
+ * All endpoints are namespaced under `/api/v1/app_site` on the backend.
+ */
+import type {
+  ApplicationData,
+  PersonalInfo,
+  Education,
+  ProfessionalBackground,
+  WorkExperience,
+  SelectedTool,
+  SelectedSkill,
+  Certification,
+  WorkSetup,
+  ComplianceData,
+} from '@/types/application';
+import { isHeadhunting, isDavaohub, isSourcing, getSourceName } from '@/lib/headhunting';
+// Client-side Azure uploads are disabled. Files are sent in JSON-safe base64
+// objects so FastAPI can parse them without trying to UTF-8 decode raw bytes.
+
+const RAW_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+const API_BASE = RAW_BASE.replace(/\/$/, '');
+const PREFIX = '/api/v1/app_site';
+
+function url(path: string): string {
+  return `${API_BASE}${PREFIX}${path}`;
+}
+
+async function request<T>(path: string, init: RequestInit): Promise<T> {
+  if (!API_BASE) {
+    throw new Error('VITE_API_BASE_URL is not configured. Edit your .env file.');
+  }
+  // Inject acquisition flags into JSON bodies when their corresponding
+  // session route is active (e.g. /head-hunting, /davao-hub).
+  let body = init.body;
+  if ((isHeadhunting() || isDavaohub() || isSourcing()) && typeof body === 'string') {
+    try {
+      const parsed = JSON.parse(body);
+      const extra: Record<string, boolean | string> = {};
+      if (isHeadhunting()) extra.headhunting = true;
+      if (isDavaohub()) extra.davaohub = true;
+      if (isSourcing()) {
+        extra.sourcing = true;
+        extra.source_name = getSourceName();
+      }
+      body = JSON.stringify({ ...parsed, ...extra });
+    } catch { /* leave body untouched */ }
+  }
+  const res = await fetch(url(path), {
+    ...init,
+    body,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      detail = j?.detail ?? detail;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  return (await res.json()) as T;
+}
+
+function fileNames(files: File[]): string[] {
+  return files.map((file) => file.name);
+}
+
+export interface JsonUploadFile {
+  file_name: string;
+  filename: string;
+  content_type: string;
+  mime_type: string;
+  size: number;
+  content_base64: string;
+  base64: string;
+  data_url: string;
+}
+
+async function toJsonUploadFile(file: File): Promise<JsonUploadFile> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+  const contentBase64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+  return {
+    file_name: file.name,
+    filename: file.name,
+    content_type: file.type || 'application/octet-stream',
+    mime_type: file.type || 'application/octet-stream',
+    size: file.size,
+    content_base64: contentBase64,
+    base64: contentBase64,
+    data_url: dataUrl,
+  };
+}
+
+async function toJsonUploadFiles(files: File[] = []): Promise<JsonUploadFile[]> {
+  return Promise.all(files.map(toJsonUploadFile));
+}
+
+// ------------------------ HELPERS ------------------------
+
+/** Format today as MM/DD/YYYY in Mountain Daylight Time (America/Denver). */
+export function todayMDT(): string {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  });
+  return fmt.format(new Date());
+}
+
+/** Extract a referral code from a string that may be a URL or a bare code. */
+export function extractReferralCode(input: string): string {
+  const trimmed = (input || '').trim();
+  if (!trimmed) return '';
+  try {
+    const u = new URL(trimmed);
+    return u.searchParams.get('ref') || trimmed;
+  } catch {
+    // Not a URL — maybe a bare query like "?ref=ABC" or just "ABC"
+    const m = trimmed.match(/[?&]ref=([^&]+)/i);
+    return m ? decodeURIComponent(m[1]) : trimmed;
+  }
+}
+
+// ------------------------ RESUME PARSING ------------------------
+
+export interface ParsedResume {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  linkedin: string | null;
+  github: string | null;
+  summary: string;
+  experience: string;
+  education: string;
+  skills: string;
+  certifications: string;
+}
+
+export interface ParseResumeResponse {
+  success: boolean;
+  file_name: string;
+  parsed_data: ParsedResume;
+  raw_text: string;
+}
+
+export async function parseResume(file: File): Promise<ParseResumeResponse> {
+  const res = await request<ParseResumeResponse>('/parse-resume', {
+    method: 'POST',
+    body: JSON.stringify({ file: await toJsonUploadFile(file) }),
+  });
+  return res;
+}
+
+// ------------------------ AUTH ------------------------
+
+export interface AuthResponse {
+  success: boolean;
+  contact_id: string;
+  /** Backend-issued contact tags (e.g. "Talent Pool") used for routing. */
+  tags?: string[];
+}
+
+/** Sign in an existing contact. Throws if the credentials are invalid. */
+export function login(email: string, password: string) {
+  return request<AuthResponse>('/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+/** Create a new contact. Throws if the email already exists. */
+export function signup(email: string, password: string, referredBy = '') {
+  const payload: Record<string, string> = { email, password };
+  if (referredBy) payload.referred_by = referredBy;
+  return request<AuthResponse>('/signup', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function forgotPassword(email: string) {
+  return request<{ success: boolean; message?: string }>('/forgot_password', {
+    method: 'POST',
+    body: JSON.stringify({ email, forgot_password: 1 }),
+  });
+}
+
+// ------------------------ STEP UPDATES ------------------------
+
+export async function updatePersonalInfo(contactId: string, p: PersonalInfo, referrer = '') {
+  return request<{ success: boolean }>('/personal-info', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      first_name: p.firstName,
+      middle_name: p.middleName,
+      last_name: p.lastName,
+      phone: p.phoneNumber,
+      phone_country: p.phoneCountry,
+      suffix: p.suffix,
+      date_of_birth: p.dateOfBirth,
+      street: p.houseStreet,
+      barangay: p.barangay,
+      city: p.city,
+      address: p.address,
+      country: p.country,
+      nationality: p.nationality,
+      languages: p.languagesSpoken,
+      referrer,
+      referral_link: p.referralLink ?? '',
+      photo: p.photo ? await toJsonUploadFile(p.photo) : null,
+    }),
+  });
+}
+
+export function reapply(contactId: string, referrer: string, dateApplied: string) {
+  return request<{ success: boolean }>('/reapply', {
+    method: 'PUT',
+    body: JSON.stringify({ contact_id: contactId, referrer, date_applied: dateApplied }),
+  });
+}
+
+export function finishApplication(contactId: string, dateApplied: string) {
+  return request<{ success: boolean }>('/finish', {
+    method: 'PUT',
+    body: JSON.stringify({ contact_id: contactId, date_applied: dateApplied }),
+  });
+}
+
+export function updateEducation(contactId: string, e: Education) {
+  return request<{ success: boolean }>('/education', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      education_level: e.highestLevel,
+      school_name: e.schoolName,
+      school_location: e.schoolLocation,
+      graduation_date: e.graduationDate,
+      degree: e.degreeField,
+    }),
+  });
+}
+
+export function updateProfessionalBackground(contactId: string, p: ProfessionalBackground) {
+  // The wizard stores the chosen schedule in `schedule`; fall back to
+  // `availability` for older draft state. Backend expects `availability`.
+  const availability = p.schedule || p.availability || '';
+  return request<{ success: boolean }>('/professional-background', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      preferred_industry: p.preferredIndustry,
+      preferred_role: p.preferredRole,
+      availability,
+      hours_per_day: p.hoursPerDay,
+    }),
+  });
+}
+
+export function updateWorkExperience(contactId: string, experiences: WorkExperience[]) {
+  return request<{ success: boolean }>('/work-experience', {
+    method: 'PUT',
+    body: JSON.stringify({ contact_id: contactId, experiences }),
+  });
+}
+
+export function updateToolsPlatforms(contactId: string, tools: SelectedTool[]) {
+  return request<{ success: boolean }>('/tools-platforms', {
+    method: 'PUT',
+    body: JSON.stringify({ contact_id: contactId, tools }),
+  });
+}
+
+export function updateSkills(
+  contactId: string,
+  skills: SelectedSkill[],
+  valueProposition: string,
+) {
+  return request<{ success: boolean }>('/skills-competencies', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      skills,
+      value_proposition: valueProposition,
+    }),
+  });
+}
+
+export async function updatePortfolio(
+  contactId: string,
+  portfolioLink: string,
+  _fileUrls: string[] = [],
+  files: File[] = [],
+) {
+  return request<{ success: boolean }>('/portfolio', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      portfolio_link: portfolioLink,
+      file_names: fileNames(files),
+      files: await toJsonUploadFiles(files),
+    }),
+  });
+}
+
+export function updateValueProposition(contactId: string, valueProposition: string) {
+  return request<{ success: boolean }>('/value-proposition', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      value_proposition: valueProposition,
+    }),
+  });
+}
+
+export async function updateCertifications(contactId: string, certifications: Certification[]) {
+  const items = await Promise.all(certifications.map(async ({ certificate, ...rest }) => ({
+    ...rest,
+    certificate_name: certificate?.name ?? null,
+    certificate: certificate ? await toJsonUploadFile(certificate) : null,
+  })));
+  return request<{ success: boolean }>('/certifications', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      certifications: items,
+      certificate_files: items.map((item) => item.certificate).filter(Boolean),
+    }),
+  });
+}
+
+export async function updateWorkSetup(contactId: string, w: WorkSetup, _deviceSpecUrl = '') {
+  const specs = w.systemSpecs ?? { cpu: '', ram: '', storage: '', source: '' };
+  const primaryDeviceScreenshots = await toJsonUploadFiles(w.deviceScreenshots ?? []);
+  const secondaryDeviceScreenshots = await toJsonUploadFiles(w.secondaryDeviceScreenshots ?? []);
+  return request<{ success: boolean }>('/work-setup', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      primary_device: w.primaryDevice,
+      secondary_device: w.secondaryDevice,
+      has_noise_cancelling_headset: w.hasNoiseCancellingHeadset,
+      has_hd_webcam: w.hasHDWebcam,
+      primary_internet_provider: w.primaryInternetProvider,
+      secondary_internet_provider: w.secondaryInternetProvider,
+      primary_isp_speedtest: w.primaryISPSpeedtest ?? '',
+      secondary_isp_speedtest: w.secondaryISPSpeedtest ?? '',
+      detected_cpu: specs.cpu,
+      detected_ram: specs.ram,
+      detected_storage: specs.storage,
+      detection_source: specs.source,
+      detection_consent: !!specs.source,
+      primary_device_screenshot_names: fileNames(w.deviceScreenshots ?? []),
+      primary_device_screenshots: primaryDeviceScreenshots,
+      secondary_device_screenshot_names: fileNames(w.secondaryDeviceScreenshots ?? []),
+      secondary_device_screenshots: secondaryDeviceScreenshots,
+    }),
+  });
+}
+
+// ------------------------ ATTENDANCE ------------------------
+
+export type AttendanceAction = 'login' | 'logout';
+export type AttendanceAvailability =
+  | 'available for training only'
+  | 'available for client pairing only'
+  | 'available for both client and training';
+
+export async function submitAttendance(
+  contactId: string,
+  action: AttendanceAction,
+  availability: AttendanceAvailability | '',
+  date: string,
+) {
+  if (!API_BASE) {
+    throw new Error('VITE_API_BASE_URL is not configured. Edit your .env file.');
+  }
+  const loginStatus =
+    action === 'logout'
+      ? 'Logged Out'
+      : availability
+        ? `Logged In - ${availability}`
+        : 'Logged In';
+  const res = await fetch(`${API_BASE}${PREFIX}/attendance`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contact_id: contactId,
+      login_status: loginStatus,
+      action,
+      availability,
+      date,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `Attendance request failed (${res.status})`);
+  }
+  return (await res.json().catch(() => ({}))) as { success?: boolean };
+}
+
+
+export interface ComplianceUrls {
+  validIdUrl?: string;
+  nbiClearanceUrl?: string;
+  nbiValidity?: string;
+  policeClearanceUrl?: string;
+  policeValidity?: string;
+  proofOfSeparationUrl?: string;
+}
+
+export async function updateCompliance(contactId: string, c: ComplianceData, urls: ComplianceUrls = {}) {
+  return request<{ success: boolean }>('/compliance', {
+    method: 'PUT',
+    body: JSON.stringify({
+      contact_id: contactId,
+      background_check_authorized: c.authorizeBackgroundCheck,
+      nbi_validity: urls.nbiValidity ?? c.nbiValidity,
+      police_validity: urls.policeValidity ?? c.policeValidity,
+      valid_id: c.validId ? await toJsonUploadFile(c.validId) : null,
+      valid_id_file_name: c.validId?.name ?? '',
+      nbi_clearance: c.nbiClearance ? await toJsonUploadFile(c.nbiClearance) : null,
+      nbi_clearance_file_name: c.nbiClearance?.name ?? '',
+      police_clearance: c.policeClearance ? await toJsonUploadFile(c.policeClearance) : null,
+      police_clearance_file_name: c.policeClearance?.name ?? '',
+      proof_of_separation: c.proofOfSeparation ? await toJsonUploadFile(c.proofOfSeparation) : null,
+      proof_of_separation_file_name: c.proofOfSeparation?.name ?? '',
+      valid_id_url: urls.validIdUrl ?? '',
+      nbi_clearance_url: urls.nbiClearanceUrl ?? '',
+      police_clearance_url: urls.policeClearanceUrl ?? '',
+      proof_of_separation_url: urls.proofOfSeparationUrl ?? '',
+    }),
+  });
+}
+
+export async function submitComplianceDocs(input: {
+  email: string;
+  nbiClearance: File | null;
+  nbiValidity: string;
+  policeClearance: File | null;
+  policeValidity: string;
+  coe: File | null;
+}) {
+  if (!API_BASE) {
+    throw new Error('VITE_API_BASE_URL is not configured. Edit your .env file.');
+  }
+  const body: Record<string, unknown> = { email: input.email };
+  if (input.nbiClearance) {
+    body.nbi_clearance = await toJsonUploadFile(input.nbiClearance);
+    body.nbi_clearance_file_name = input.nbiClearance.name;
+  }
+  if (input.nbiValidity) body.nbi_validity = input.nbiValidity;
+  if (input.policeClearance) {
+    body.police_clearance = await toJsonUploadFile(input.policeClearance);
+    body.police_clearance_file_name = input.policeClearance.name;
+  }
+  if (input.policeValidity) body.police_validity = input.policeValidity;
+  if (input.coe) {
+    body.proof_of_separation = await toJsonUploadFile(input.coe);
+    body.proof_of_separation_file_name = input.coe.name;
+  }
+  const res = await fetch(`${API_BASE}${PREFIX}/update_compliance_docs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try { const j = await res.json(); detail = j?.detail ?? detail; } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  return (await res.json().catch(() => ({}))) as { success?: boolean };
+}
+
+// ------------------------ READS ------------------------
+
+export function getProfile(contactId: string) {
+  return request<Record<string, unknown>>(`/profile/${contactId}`, { method: 'GET' });
+}
+
+export function getApplicants(page = 1, limit = 50, startAfter = '') {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (startAfter) params.set('start_after', startAfter);
+  return request<{
+    count: number;
+    page?: number;
+    total?: number;
+    total_pages?: number;
+    has_more?: boolean;
+    start_after?: string;
+    data: Array<{ id: string; name: string; email: string }>;
+  }>(`/applicants?${params.toString()}`, { method: 'GET' });
+}
+
+export function getApplicant(contactId: string) {
+  return request<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    custom_fields: Record<string, string>;
+  }>(`/applicants/${contactId}`, { method: 'GET' });
+}
+
+export interface DashboardResponse {
+  id: string;
+  email: string;
+  personal_info: {
+    first_name?: string; last_name?: string; phone?: string; suffix?: string;
+    street?: string; barangay?: string; city?: string;
+    nationality?: string; languages?: string;
+  };
+  education: { education_level?: string; school_name?: string; school_location?: string; graduation_date?: string; degree?: string };
+  professional_background: { preferred_industry?: string; preferred_role?: string; preferred_bio?: string; availability?: string; hours_per_day?: string };
+  work_experience: Array<Record<string, unknown>>;
+  tools: Array<Record<string, unknown>>;
+  skills: { items: Array<Record<string, unknown>>; value_proposition?: string };
+  portfolio: { link?: string; files?: unknown[] };
+  certifications: Array<Record<string, unknown>>;
+  work_setup: {
+    primary_device?: string; secondary_device?: string;
+    noise_cancelling_headset?: string; hd_webcam?: string;
+    primary_internet?: string; secondary_internet?: string; device_spec?: string;
+  };
+  compliance: {
+    background_check?: string; valid_id?: string;
+    nbi_clearance?: string; nbi_validity?: string;
+    police_clearance?: string; police_validity?: string;
+    proof_of_separation?: string;
+  };
+  custom_fields_raw?: Array<{ id: string; value: string }>;
+  /** MM/DD/YYYY when the candidate last applied; drives the 60-day reapply window. */
+  date_applied?: string;
+}
+
+export function getDashboard(contactId: string) {
+  return request<DashboardResponse>(`/dashboard/${contactId}`, { method: 'GET' });
+}
+
+/** Look up a contact by email via the dashboard endpoint. */
+export function getDashboardByEmail(email: string) {
+  return request<DashboardResponse>(`/dashboard/${encodeURIComponent(email)}`, { method: 'GET' });
+}
+
+// ------------------------ VALUES ASSESSMENT ------------------------
+
+export interface ValuesAssessmentPayload {
+  contact_id?: string;
+  email?: string;
+  scores: Record<string, number>;
+  /** Optional raw ranked answers for backend storage / auditing. */
+  answers?: Array<{ question: string; ranked: Array<{ type: string; value: string }> }>;
+}
+
+export function submitValuesAssessment(payload: ValuesAssessmentPayload) {
+  return request<{ success: boolean }>('/values_assessment', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface AssessmentResultResponse {
+  firstName?: string;
+  lastName?: string;
+  /** Backend returns a single "name" field like "First Last". */
+  name?: string;
+  email?: string;
+  contact_id?: string;
+  /** Legacy shape — some payloads return scores at the root. */
+  scores?: Record<string, number>;
+  /** Current shape — scores nested under values_assessment. */
+  values_assessment?: {
+    scores?: Record<string, number>;
+    result?: string;
+    [k: string]: unknown;
+  };
+}
+
+export function getAssessmentResult(cid: string) {
+  const q = encodeURIComponent(cid);
+  return request<AssessmentResultResponse>(`/assessment_result?cid=${q}`, { method: 'GET' });
+}
+
+// ------------------------ HELPERS ------------------------
+
+export const CONTACT_ID_KEY = 'cb_contact_id';
+
+export function saveContactId(id: string) {
+  try { localStorage.setItem(CONTACT_ID_KEY, id); } catch { /* ignore */ }
+}
+export function loadContactId(): string | null {
+  try { return localStorage.getItem(CONTACT_ID_KEY); } catch { return null; }
+}
+export function clearContactId() {
+  try { localStorage.removeItem(CONTACT_ID_KEY); } catch { /* ignore */ }
+}
+
+/** Submit the per-substep payload that matches the backend contract. */
+export async function submitSubstep(
+  contactId: string,
+  substep: number,
+  data: ApplicationData,
+  referrer = '',
+): Promise<void> {
+  // Wizard substep order (Index.tsx):
+  // 1 Personal · 2 Education · 3 ProfBg · 4 WorkExp · 5 Tools · 6 Skills ·
+  // 7 Portfolio · 8 Certifications · 9 ValueProposition · 10 WorkSetup · 11 Compliance
+  switch (substep) {
+    case 1: await updatePersonalInfo(contactId, data.personalInfo, referrer); return;
+    case 2: await updateEducation(contactId, data.education); return;
+    case 3: await updateProfessionalBackground(contactId, data.professionalBackground); return;
+    case 4: await updateWorkExperience(contactId, data.workExperiences); return;
+    case 5: await updateToolsPlatforms(contactId, data.selectedTools); return;
+    case 6: await updateSkills(contactId, data.selectedSkills, data.personalInfo.valueProposition); return;
+    case 7: await updatePortfolio(contactId, data.portfolioLink, fileNames(data.portfolioFiles), data.portfolioFiles); return;
+    case 8: await updateCertifications(contactId, data.certifications); return;
+    case 9: await updateValueProposition(contactId, data.personalInfo.valueProposition); return;
+    case 10: await updateWorkSetup(contactId, data.workSetup); return;
+    case 11: await updateCompliance(contactId, data.compliance); return;
+  }
+}

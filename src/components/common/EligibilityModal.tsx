@@ -56,7 +56,7 @@ const EligibilityModal = ({
     onOpenChange(false);
   };
 
-  const iconFor: Record<Variant, React.ReactElement> = {
+  const iconFor: Record<Variant, import('react').ReactElement> = {
     location: <Globe2 className="w-5 h-5 text-primary" />,
     nbi: <ShieldAlert className="w-5 h-5 text-primary" />,
     nbiFail: <Globe2 className="w-5 h-5 text-primary" />,

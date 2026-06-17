@@ -17,6 +17,7 @@ import { Route as AttendanceRouteImport } from './routes/attendance'
 import { Route as AssessmentResultRouteImport } from './routes/assessment-result'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SourceNameRouteImport } from './routes/source.$name'
 
 const HeadHuntingRoute = HeadHuntingRouteImport.update({
   id: '/head-hunting',
@@ -58,6 +59,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SourceNameRoute = SourceNameRouteImport.update({
+  id: '/source/$name',
+  path: '/source/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/davao-hub': typeof DavaoHubRoute
   '/head-hunting': typeof HeadHuntingRoute
+  '/source/$name': typeof SourceNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/davao-hub': typeof DavaoHubRoute
   '/head-hunting': typeof HeadHuntingRoute
+  '/source/$name': typeof SourceNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/davao-hub': typeof DavaoHubRoute
   '/head-hunting': typeof HeadHuntingRoute
+  '/source/$name': typeof SourceNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/davao-hub'
     | '/head-hunting'
+    | '/source/$name'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/davao-hub'
     | '/head-hunting'
+    | '/source/$name'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/davao-hub'
     | '/head-hunting'
+    | '/source/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DavaoHubRoute: typeof DavaoHubRoute
   HeadHuntingRoute: typeof HeadHuntingRoute
+  SourceNameRoute: typeof SourceNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/source/$name': {
+      id: '/source/$name'
+      path: '/source/$name'
+      fullPath: '/source/$name'
+      preLoaderRoute: typeof SourceNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DavaoHubRoute: DavaoHubRoute,
   HeadHuntingRoute: HeadHuntingRoute,
+  SourceNameRoute: SourceNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

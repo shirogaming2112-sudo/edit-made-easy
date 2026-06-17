@@ -5,16 +5,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md",
-        outline: "border-[1.5px] border-primary/30 bg-background text-primary hover:bg-primary/5 hover:border-primary/60",
-        secondary: "bg-secondary text-primary shadow-sm hover:bg-secondary/80",
-        ghost: "text-foreground hover:bg-accent/10 hover:text-primary",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md disabled:bg-muted disabled:text-muted-foreground",
+        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md disabled:bg-muted disabled:text-muted-foreground",
+        outline: "border-[1.5px] border-primary/30 bg-background text-primary hover:bg-primary/5 hover:border-primary/60 disabled:border-border disabled:text-muted-foreground disabled:bg-background",
+        secondary: "bg-secondary text-primary shadow-sm hover:bg-secondary/80 disabled:bg-muted disabled:text-muted-foreground",
+        ghost: "text-foreground hover:bg-primary/10 hover:text-primary disabled:text-muted-foreground",
+        link: "text-primary underline-offset-4 hover:underline disabled:text-muted-foreground",
       },
       size: {
         default: "h-10 px-5 py-2",

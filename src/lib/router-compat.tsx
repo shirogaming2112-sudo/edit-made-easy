@@ -19,7 +19,6 @@ export function useNavigate() {
     (to: To, opts?: { replace?: boolean }) => {
       if (typeof to === "number") {
         if (to < 0) {
-          // step back; TanStack uses router.history
           for (let i = 0; i < Math.abs(to); i++) router.history.back();
         } else {
           for (let i = 0; i < to; i++) router.history.forward();
@@ -33,17 +32,17 @@ export function useNavigate() {
           searchObj[k] = v;
         });
       }
-      nav({
-        to: pathname as never,
-        search: searchObj as never,
-        replace: opts?.replace,
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      nav({ to: pathname as any, search: searchObj as any, replace: opts?.replace });
     },
     [nav, router],
   );
 }
 
-export function useSearchParams(): [URLSearchParams, (next: URLSearchParams | Record<string, string>) => void] {
+export function useSearchParams(): [
+  URLSearchParams,
+  (next: URLSearchParams | Record<string, string>) => void,
+] {
   const search = useRouterState({ select: (s) => s.location.search }) as Record<string, unknown>;
   const params = new URLSearchParams();
   Object.entries(search || {}).forEach(([k, v]) => {
@@ -58,7 +57,8 @@ export function useSearchParams(): [URLSearchParams, (next: URLSearchParams | Re
       } else {
         Object.assign(obj, next);
       }
-      nav({ search: obj as never });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      nav({ search: obj as any });
     },
     [nav],
   );
@@ -69,7 +69,7 @@ export function useLocation() {
   const loc = useRouterState({ select: (s) => s.location });
   return {
     pathname: loc.pathname,
-    search: loc.searchStr ?? "",
+    search: (loc as { searchStr?: string }).searchStr ?? "",
     hash: loc.hash ?? "",
     state: (loc as { state?: unknown }).state ?? null,
     key: loc.href,
@@ -80,7 +80,7 @@ export function useParams<T extends Record<string, string> = Record<string, stri
   return useTSParams({ strict: false }) as T;
 }
 
-type LinkProps = React.ComponentProps<"a"> & {
+type LinkProps = Omit<React.ComponentProps<"a">, "href"> & {
   to: string;
   replace?: boolean;
   state?: unknown;
@@ -91,41 +91,38 @@ export const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(function Link
   ref,
 ) {
   return (
-    <TSLink ref={ref} to={to as never} replace={replace} {...(rest as Record<string, unknown>)}>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <TSLink ref={ref} to={to as any} replace={replace} {...(rest as any)}>
       {children}
     </TSLink>
   );
 });
 
-export type NavLinkProps = LinkProps & {
+export type NavLinkProps = Omit<React.ComponentProps<"a">, "href" | "className" | "style" | "children"> & {
+  to: string;
   end?: boolean;
-  className?: string | ((args: { isActive: boolean }) => string);
-  style?: React.CSSProperties | ((args: { isActive: boolean }) => React.CSSProperties);
-  children?: React.ReactNode | ((args: { isActive: boolean }) => React.ReactNode);
+  replace?: boolean;
+  className?: string | ((args: { isActive: boolean; isPending: boolean }) => string);
+  style?: React.CSSProperties | ((args: { isActive: boolean; isPending: boolean }) => React.CSSProperties);
+  children?:
+    | React.ReactNode
+    | ((args: { isActive: boolean; isPending: boolean }) => React.ReactNode);
 };
 
 export const NavLink = React.forwardRef<HTMLAnchorElement, NavLinkProps>(function NavLink(
-  { to, end, className, style, children, ...rest },
+  { to, end, className, style, children, replace, ...rest },
   ref,
 ) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isActive = end ? pathname === to : pathname === to || pathname.startsWith(to + "/");
+  const args = { isActive, isPending: false };
+  const cls = typeof className === "function" ? className(args) : className;
+  const st = typeof style === "function" ? style(args) : style;
+  const ch = typeof children === "function" ? children(args) : children;
   return (
-    <TSLink
-      ref={ref}
-      to={to as never}
-      activeOptions={{ exact: end }}
-      {...(rest as Record<string, unknown>)}
-    >
-      {(state) => {
-        const isActive = state.isActive;
-        const cls = typeof className === "function" ? className({ isActive }) : className;
-        const st = typeof style === "function" ? style({ isActive }) : style;
-        const ch = typeof children === "function" ? children({ isActive }) : children;
-        return (
-          <span className={cls} style={st}>
-            {ch}
-          </span>
-        );
-      }}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <TSLink ref={ref} to={to as any} replace={replace} className={cls} style={st} {...(rest as any)}>
+      {ch as React.ReactNode}
     </TSLink>
   );
 });

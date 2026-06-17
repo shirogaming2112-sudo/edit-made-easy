@@ -119,12 +119,32 @@
   h1, h2, h3, h4 {
     font-family: "Poppins", sans-serif;
   }
+  :focus-visible {
+    outline: none;
+  }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
+  [role="combobox"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="checkbox"]:not([aria-disabled="true"]),
+  [role="radio"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
   a[href],
   label[for],
   summary,
-  select {
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+  input[type="file"]::file-selector-button {
     cursor: pointer;
   }
 }
@@ -144,4 +164,226 @@
     hsl(var(--hero-gradient-end)) 50%,
     hsl(var(--hero-gradient-start)) 100%
   );
+}
+
+@utility step-line {
+  background: hsl(var(--sidebar-line));
+}
+
+@utility step-circle {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+@utility step-circle-active {
+  background-color: #ffffff;
+  color: hsl(var(--primary));
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 0 0 4px hsl(var(--primary) / 0.3);
+}
+
+@utility step-circle-complete {
+  background: hsl(var(--step-complete));
+  color: #ffffff;
+}
+
+@utility step-circle-inactive {
+  background-color: rgb(255 255 255 / 0.2);
+  color: rgb(255 255 255 / 0.7);
+}
+
+@utility form-input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  transition: all 0.2s ease;
+  outline: none;
+  &::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+  &:hover:not(:disabled):not(:focus) {
+    border-color: hsl(var(--primary) / 0.4);
+  }
+  &:focus-visible {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    background-color: hsl(var(--muted) / 0.5);
+  }
+}
+
+@utility form-select {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  transition: all 0.2s ease;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25rem;
+  &:hover:not(:disabled):not(:focus) {
+    border-color: hsl(var(--primary) / 0.4);
+  }
+  &:focus-visible {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    background-color: hsl(var(--muted) / 0.5);
+  }
+}
+
+@utility form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.375rem;
+}
+
+@utility file-dropzone {
+  border: 2px dashed hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  &:hover {
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--primary) / 0.05);
+  }
+}
+
+@utility btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  &:hover:not(:disabled) {
+    background-color: hsl(var(--primary) / 0.9);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary));
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+@utility btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1.5px solid hsl(var(--primary) / 0.3);
+  background-color: hsl(var(--background));
+  color: hsl(var(--primary));
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  &:hover:not(:disabled) {
+    background-color: hsl(var(--primary) / 0.05);
+    border-color: hsl(var(--primary) / 0.6);
+  }
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary));
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@utility skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border));
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+@utility skill-chip-active {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
+
+@utility skill-chip-inactive {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  &:hover {
+    background-color: hsl(var(--muted));
+  }
+}
+
+@utility tab-button {
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+@utility tab-button-active {
+  color: hsl(var(--primary));
+  border-bottom-color: hsl(var(--primary));
+}
+
+@utility tab-button-inactive {
+  color: hsl(var(--muted-foreground));
+  &:hover {
+    color: hsl(var(--foreground));
+  }
 }

@@ -1,0 +1,1125 @@
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from '@/lib/router-compat';
+import { Pencil, X, Save, User, LogOut, Clock, Loader2 } from 'lucide-react';
+import Logo from '@/components/Logo';
+import Footer from '@/components/Footer';
+import EducationStep from '@/components/steps/EducationStep';
+import PersonalInfoStep from '@/components/steps/PersonalInfoStep';
+import ProfessionalBgStep from '@/components/steps/ProfessionalBgStep';
+import WorkExperienceStep from '@/components/steps/WorkExperienceStep';
+import SkillsStep from '@/components/steps/SkillsStep';
+import ToolsStep from '@/components/steps/ToolsStep';
+import CertificationsStep from '@/components/steps/CertificationsStep';
+import PortfolioStep from '@/components/steps/PortfolioStep';
+import ValuePropositionStep from '@/components/steps/ValuePropositionStep';
+import WorkSetupStep, { WorkSetupData, emptyWorkSetup } from '@/components/steps/WorkSetupStep';
+import ComplianceStep, { ComplianceFormData, emptyCompliance } from '@/components/steps/ComplianceStep';
+import ValuesAssessmentStep, {
+  buildInitialAssessment,
+  computeScores,
+} from '@/components/steps/ValuesAssessmentStep';
+import type { AssessmentQuestion } from '@/data/valuesAssessment';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  PersonalInfo, Education, ProfessionalBackground, WorkExperience,
+  SelectedSkill, SelectedTool, Certification,
+} from '@/types/application';
+import {
+  loadContactId, getDashboard, updatePersonalInfo, updateEducation,
+  updateProfessionalBackground, updateWorkExperience, updateToolsPlatforms,
+  updateSkills, updateCertifications, updateWorkSetup, updateCompliance,
+  updateValueProposition, updatePortfolio,
+  reapply, todayMDT, extractReferralCode, submitValuesAssessment,
+  submitAttendance, type AttendanceAvailability,
+} from '@/lib/apiClient';
+import { toast } from 'sonner';
+import SearchableSelect from '@/components/common/SearchableSelect';
+import PhoneInput from '@/components/common/PhoneInput';
+import { COUNTRY_NAMES, NATIONALITIES } from '@/lib/countries';
+
+
+const emptyProfile: PersonalInfo = {
+  firstName: '', middleName: '', lastName: '', suffix: '',
+  dateOfBirth: '', phoneNumber: '', phoneCountry: '', languagesSpoken: '',
+  houseStreet: '', barangay: '', city: '', address: '',
+  country: '', nationality: '', valueProposition: '', photo: null,
+};
+
+const emptyEducation: Education = {
+  highestLevel: '', schoolName: '', schoolLocation: '', graduationDate: '', degreeField: '',
+};
+
+const emptyProfessional: ProfessionalBackground = {
+  preferredIndustry: '', preferredRole: '',
+  availability: '', schedule: '', hoursPerDay: '',
+};
+
+type SectionKey =
+  | 'personal'
+  | 'education'
+  | 'professional'
+  | 'workExperience'
+  | 'tools'
+  | 'skills'
+  | 'portfolio'
+  | 'certifications'
+  | 'valueProp'
+  | 'workSetup'
+  | 'compliance';
+
+const SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'personal', label: 'Personal Information' },
+  { key: 'education', label: 'Education' },
+  { key: 'professional', label: 'Professional Background' },
+  { key: 'workExperience', label: 'Work Experience' },
+  { key: 'tools', label: 'Tools & Platforms Used' },
+  { key: 'skills', label: 'Skills & Core Competencies' },
+  { key: 'portfolio', label: 'Portfolio / Sample Works' },
+  { key: 'certifications', label: 'Certifications / Trainings' },
+  { key: 'valueProp', label: 'Value Proposition' },
+  { key: 'workSetup', label: 'Work Setup' },
+  { key: 'compliance', label: 'Compliance' },
+];
+
+// Parse MM/DD/YYYY (MDT) string into a Date.
+function parseMDTDate(s: string): Date | null {
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+export type DashboardVariant = 'reapply' | 'attendance';
+
+interface DashboardProps { variant?: DashboardVariant }
+
+const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
+  const navigate = useNavigate();
+  const [activeSection, setActiveSection] = useState<SectionKey>('personal');
+  const [editing, setEditing] = useState(false);
+  const contactId = loadContactId();
+
+  // Saved state
+  const [profile, setProfile] = useState<PersonalInfo>(emptyProfile);
+  const [education, setEducation] = useState<Education>(emptyEducation);
+  const [professional, setProfessional] = useState<ProfessionalBackground>(emptyProfessional);
+  const [skills, setSkills] = useState<SelectedSkill[]>([]);
+  const [tools, setTools] = useState<SelectedTool[]>([]);
+  const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([]);
+  const [certifications, setCertifications] = useState<Certification[]>([]);
+  const [workSetup, setWorkSetup] = useState<WorkSetupData>(emptyWorkSetup);
+  const [compliance, setCompliance] = useState<ComplianceFormData>(emptyCompliance);
+  const [portfolioLink, setPortfolioLink] = useState<string>('');
+  const [portfolioFileNames, setPortfolioFileNames] = useState<string[]>([]);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [dateApplied, setDateApplied] = useState<string>('');
+
+  // Drafts
+  const [draftProfile, setDraftProfile] = useState<PersonalInfo>(emptyProfile);
+  const [draftEducation, setDraftEducation] = useState<Education>(emptyEducation);
+  const [draftProfessional, setDraftProfessional] = useState<ProfessionalBackground>(emptyProfessional);
+  const [draftSkills, setDraftSkills] = useState<SelectedSkill[]>([]);
+  const [draftTools, setDraftTools] = useState<SelectedTool[]>([]);
+  const [draftWorkExperiences, setDraftWorkExperiences] = useState<WorkExperience[]>([]);
+  const [draftCertifications, setDraftCertifications] = useState<Certification[]>([]);
+  const [draftWorkSetup, setDraftWorkSetup] = useState<WorkSetupData>(emptyWorkSetup);
+  const [draftCompliance, setDraftCompliance] = useState<ComplianceFormData>(emptyCompliance);
+  const [draftPortfolioLink, setDraftPortfolioLink] = useState<string>('');
+  const [draftPortfolioFiles, setDraftPortfolioFiles] = useState<File[]>([]);
+  const [draftPhotoPreview, setDraftPhotoPreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Reapply modal
+  const [reapplyOpen, setReapplyOpen] = useState(false);
+  const [reapplyCode, setReapplyCode] = useState('');
+  const [reapplying, setReapplying] = useState(false);
+  const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [assessment, setAssessment] = useState<AssessmentQuestion[]>(() => buildInitialAssessment());
+  const [assessmentDone, setAssessmentDone] = useState(false);
+  const [submittingAssessment, setSubmittingAssessment] = useState(false);
+  const [assessmentConfirmOpen, setAssessmentConfirmOpen] = useState(false);
+
+  // Attendance (attendance dashboard variant)
+  const [attendanceLoginOpen, setAttendanceLoginOpen] = useState(false);
+  const [attendanceSubmitting, setAttendanceSubmitting] = useState(false);
+  const handleAttendance = async (
+    action: 'login' | 'logout',
+    availability: AttendanceAvailability | '' = '',
+  ) => {
+    if (!contactId) { toast.error('Not signed in.'); return; }
+    if (attendanceSubmitting) return;
+    setAttendanceSubmitting(true);
+    try {
+      await submitAttendance(contactId, action, availability, todayMDT());
+      toast.success(action === 'login' ? `Logged in: ${availability}` : 'Logged out');
+      setAttendanceLoginOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Attendance failed');
+    } finally {
+      setAttendanceSubmitting(false);
+    }
+  };
+
+
+
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setEditing(false); }, [activeSection]);
+
+  // Load dashboard data on mount.
+  useEffect(() => {
+    if (!contactId) return;
+    (async () => {
+      try {
+        const d = await getDashboard(contactId);
+        const pi = d.personal_info || {};
+        setProfile({
+          ...emptyProfile,
+          firstName: pi.first_name || '',
+          lastName: pi.last_name || '',
+          suffix: pi.suffix || '',
+          phoneNumber: pi.phone || '',
+          languagesSpoken: pi.languages || '',
+          houseStreet: pi.street || '',
+          barangay: pi.barangay || '',
+          city: pi.city || '',
+          nationality: pi.nationality || '',
+          valueProposition: d.skills?.value_proposition || '',
+        });
+        const e = d.education || {};
+        setEducation({
+          highestLevel: e.education_level || '',
+          schoolName: e.school_name || '',
+          schoolLocation: e.school_location || '',
+          graduationDate: e.graduation_date || '',
+          degreeField: e.degree || '',
+        });
+        const pb = d.professional_background || {};
+        setProfessional({
+          preferredIndustry: pb.preferred_industry || '',
+          preferredRole: pb.preferred_role || '',
+          availability: pb.availability || '',
+          schedule: pb.availability || '',
+          hoursPerDay: pb.hours_per_day || '',
+        });
+        const sk = (d.skills?.items || []) as Array<{ skill?: string; category?: string; proficiency?: string }>;
+        setSkills(sk.filter((s) => s.skill).map((s) => ({
+          skill: String(s.skill),
+          category: String(s.category || ''),
+          proficiency: (s.proficiency as SelectedSkill['proficiency']) || 'Proficient',
+        })));
+        const tl = (d.tools || []) as Array<{ tool?: string; proficiency?: string }>;
+        setTools(tl.filter((t) => t.tool).map((t) => ({
+          tool: String(t.tool),
+          proficiency: (t.proficiency as SelectedTool['proficiency']) || 'Proficient',
+        })));
+        const we = (d.work_experience || []) as Array<Record<string, unknown>>;
+        setWorkExperiences(we.map((w, i) => ({
+          id: String(w.id ?? `we-${i}`),
+          title: String(w.title ?? ''),
+          employer: String(w.employer ?? ''),
+          location: String(w.location ?? ''),
+          startDate: String(w.startDate ?? w.start_date ?? ''),
+          endDate: String(w.endDate ?? w.end_date ?? ''),
+          currentlyWorking: Boolean(w.currentlyWorking ?? w.currently_working ?? false),
+          responsibilities: String(w.responsibilities ?? ''),
+          toolsPlatforms: String(w.toolsPlatforms ?? w.tools_platforms ?? ''),
+        })));
+        const ce = (d.certifications || []) as Array<Record<string, unknown>>;
+        setCertifications(ce.map((c, i) => ({
+          id: String(c.id ?? `ce-${i}`),
+          type: String(c.type ?? ''),
+          title: String(c.title ?? ''),
+          organization: String(c.organization ?? ''),
+          dateCompleted: String(c.dateCompleted ?? c.date_completed ?? ''),
+          expirationDate: String(c.expirationDate ?? c.expiration_date ?? ''),
+          credentialId: String(c.credentialId ?? c.credential_id ?? ''),
+          certificate: null,
+        })));
+        const ws = d.work_setup || {};
+        setWorkSetup({
+          ...emptyWorkSetup,
+          primaryDevice: ws.primary_device || '',
+          secondaryDevice: ws.secondary_device || '',
+          headset: ws.noise_cancelling_headset === 'Yes',
+          webcam: ws.hd_webcam === 'Yes',
+          primaryISP: ws.primary_internet || '',
+          secondaryISP: ws.secondary_internet || '',
+        });
+        const co = d.compliance || {};
+        setCompliance({
+          authorized: co.background_check === 'Yes',
+          validId: null,
+          nbiClearance: null,
+          policeClearance: null,
+          proofOfSeparation: null,
+          nbiValidity: co.nbi_validity || '',
+          policeValidity: co.police_validity || '',
+        });
+        const pf = d.portfolio || {};
+        setPortfolioLink(pf.link || '');
+        const pfFiles = Array.isArray(pf.files) ? pf.files : [];
+        setPortfolioFileNames(
+          pfFiles.map((f) => {
+            if (typeof f === 'string') return f;
+            const obj = f as { name?: string; file_name?: string; url?: string };
+            return obj.name || obj.file_name || obj.url || '';
+          }).filter(Boolean),
+        );
+        // Date Applied — prefer top-level field, fall back to legacy custom field.
+        const daRaw = (d as { date_applied?: string }).date_applied;
+        const daCustom = (d.custom_fields_raw || []).find((f) => f.id === 'A0IfC6bqqoM4Kv98HTYb')?.value;
+        setDateApplied(daRaw || daCustom || '');
+      } catch (err) {
+        console.warn('getDashboard failed', err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const startEdit = () => {
+    setDraftProfile(profile);
+    setDraftEducation(education);
+    setDraftProfessional(professional);
+    setDraftSkills(skills);
+    setDraftTools(tools);
+    setDraftWorkExperiences(workExperiences);
+    setDraftCertifications(certifications);
+    setDraftWorkSetup(workSetup);
+    setDraftCompliance(compliance);
+    setDraftPortfolioLink(portfolioLink);
+    setDraftPortfolioFiles([]);
+    setDraftPhotoPreview(photoPreview);
+    setEditing(true);
+  };
+
+  const cancelEdit = () => setEditing(false);
+
+  const saveEdit = async () => {
+    if (!contactId) {
+      toast.error('Not signed in.');
+      return;
+    }
+    setSaving(true);
+    try {
+      switch (activeSection) {
+        case 'personal':
+          await updatePersonalInfo(contactId, draftProfile);
+          setProfile(draftProfile);
+          if (draftProfile.photo) {
+            const reader = new FileReader();
+            reader.onload = () => setPhotoPreview(reader.result as string);
+            reader.readAsDataURL(draftProfile.photo);
+          }
+          break;
+        case 'education':
+          await updateEducation(contactId, draftEducation);
+          setEducation(draftEducation);
+          break;
+        case 'professional':
+          await updateProfessionalBackground(contactId, draftProfessional);
+          setProfessional(draftProfessional);
+          break;
+        case 'workExperience':
+          await updateWorkExperience(contactId, draftWorkExperiences);
+          setWorkExperiences(draftWorkExperiences);
+          break;
+        case 'tools':
+          await updateToolsPlatforms(contactId, draftTools);
+          setTools(draftTools);
+          break;
+        case 'skills':
+          await updateSkills(contactId, draftSkills, draftProfile.valueProposition);
+          setSkills(draftSkills);
+          break;
+        case 'portfolio':
+          await updatePortfolio(contactId, draftPortfolioLink, [], draftPortfolioFiles);
+          setPortfolioLink(draftPortfolioLink);
+          if (draftPortfolioFiles.length) {
+            setPortfolioFileNames(draftPortfolioFiles.map((f) => f.name));
+          }
+          break;
+        case 'certifications':
+          await updateCertifications(contactId, draftCertifications);
+          setCertifications(draftCertifications);
+          break;
+        case 'valueProp':
+          await updateValueProposition(contactId, draftProfile.valueProposition);
+          setProfile({ ...profile, valueProposition: draftProfile.valueProposition });
+          break;
+        case 'workSetup':
+          await updateWorkSetup(contactId, {
+            primaryDevice: draftWorkSetup.primaryDevice,
+            secondaryDevice: draftWorkSetup.secondaryDevice,
+            hasNoiseCancellingHeadset: draftWorkSetup.headset,
+            hasHDWebcam: draftWorkSetup.webcam,
+            primaryInternetProvider: draftWorkSetup.primaryISP,
+            secondaryInternetProvider: draftWorkSetup.secondaryISP,
+            primaryISPSpeedtest: draftWorkSetup.primaryISPSpeedtest ?? '',
+            secondaryISPSpeedtest: draftWorkSetup.secondaryISPSpeedtest ?? '',
+            documents: [],
+            deviceScreenshots: draftWorkSetup.deviceScreenshots ?? [],
+            secondaryDeviceScreenshots: draftWorkSetup.secondaryDeviceScreenshots ?? [],
+            systemSpecs: draftWorkSetup.detectedSpecs ?? { cpu: '', ram: '', storage: '', source: '' },
+          });
+          setWorkSetup(draftWorkSetup);
+          break;
+        case 'compliance':
+          await updateCompliance(contactId, {
+            authorizeBackgroundCheck: draftCompliance.authorized,
+            validId: draftCompliance.validId ?? null,
+            nbiClearance: draftCompliance.nbiClearance ?? null,
+            policeClearance: draftCompliance.policeClearance ?? null,
+            proofOfSeparation: draftCompliance.proofOfSeparation ?? null,
+            nbiValidity: draftCompliance.nbiValidity,
+            policeValidity: draftCompliance.policeValidity,
+          });
+          setCompliance(draftCompliance);
+          break;
+      }
+      toast.success('Saved');
+      setEditing(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateProfile = (field: keyof PersonalInfo, value: string) => {
+    setDraftProfile({ ...draftProfile, [field]: value });
+  };
+
+  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDraftProfile({ ...draftProfile, photo: file });
+    const reader = new FileReader();
+    reader.onload = () => setDraftPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const fullName =
+    [profile.firstName, profile.middleName, profile.lastName, profile.suffix]
+      .filter(Boolean)
+      .join(' ') || 'Your Name';
+
+  // Reapply countdown
+  const appliedDate = parseMDTDate(dateApplied);
+  const daysSince = appliedDate
+    ? Math.floor((Date.now() - appliedDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const daysLeft = daysSince !== null ? Math.max(0, 60 - daysSince) : null;
+  const canReapply = daysSince === null || daysSince >= 60;
+
+  const handleReapplyClick = () => {
+    if (!canReapply) return;
+    setReapplyCode('');
+    setAssessment(buildInitialAssessment());
+    setAssessmentDone(false);
+    setAssessmentOpen(true);
+  };
+
+  const submitAssessment = async () => {
+    if (submittingAssessment) return;
+    if (!contactId) {
+      toast.error('Not signed in.');
+      return;
+    }
+    setSubmittingAssessment(true);
+    try {
+      const scores = computeScores(assessment);
+      await submitValuesAssessment({
+        contact_id: contactId,
+        scores,
+        answers: assessment.map((q) => ({
+          question: q.question,
+          ranked: q.options.map((o) => ({ type: o.type, value: o.value })),
+        })),
+      });
+      setAssessmentDone(true);
+      setAssessmentOpen(false);
+      setAssessmentConfirmOpen(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to submit assessment');
+    } finally {
+      setSubmittingAssessment(false);
+    }
+  };
+
+
+
+  const submitReapply = async () => {
+    if (!contactId) {
+      toast.error('Not signed in.');
+      return;
+    }
+    if (!assessmentDone) {
+      toast.error('Please complete the Values Assessment first.');
+      setReapplyOpen(false);
+      setAssessmentOpen(true);
+      return;
+    }
+    setReapplying(true);
+    try {
+      const code = extractReferralCode(reapplyCode);
+      await reapply(contactId, code, todayMDT());
+      toast.success('Reapplication submitted');
+      setReapplyOpen(false);
+      setDateApplied(todayMDT());
+      navigate('/');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Reapply failed');
+    } finally {
+      setReapplying(false);
+    }
+  };
+
+
+  const isEditableSection = true;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-muted">
+      <header className="bg-card border-b border-border shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <Logo className="h-11 w-auto" variant="black" />
+          <div className="flex items-center gap-2">
+            {variant === 'reapply' && (
+              <>
+                {daysLeft !== null && daysLeft > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground bg-muted px-2.5 py-1.5 rounded-md whitespace-nowrap">
+                    <Clock className="w-3.5 h-3.5" />
+                    {daysLeft} day{daysLeft === 1 ? '' : 's'} left
+                  </span>
+                )}
+                <button
+                  onClick={handleReapplyClick}
+                  disabled={!canReapply}
+                  title={canReapply ? 'Reapply' : `Available in ${daysLeft} day(s)`}
+                  className="btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Reapply
+                </button>
+              </>
+            )}
+            {variant === 'attendance' && (
+              <>
+                <button
+                  onClick={() => setAttendanceLoginOpen(true)}
+                  disabled={attendanceSubmitting}
+                  className="btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => handleAttendance('logout')}
+                  disabled={attendanceSubmitting}
+                  className="btn-outline text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Logout
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => navigate('/')}
+              className="btn-outline text-sm px-4 py-2 inline-flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" /> Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden mb-6">
+          <div className="relative h-28 bg-gradient-to-br from-primary via-primary to-accent" />
+          <div className="px-6 sm:px-8 pb-6 pt-16 relative">
+            <div className="absolute -top-12 left-6 sm:left-8">
+              <div className="w-24 h-24 rounded-2xl border-4 border-card bg-muted overflow-hidden flex items-center justify-center shrink-0 shadow-md">
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-10 h-10 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+            <div>
+              <h1 className="font-heading text-2xl font-bold text-foreground">{fullName}</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {profile.city || 'City'}{profile.country ? `, ${profile.country}` : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
+          <nav className="bg-card rounded-2xl border border-border shadow-sm p-2 h-fit">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setActiveSection(s.key)}
+                className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeSection === s.key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground hover:bg-muted'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-6 sm:p-8">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+              <h2 className="font-heading text-xl font-bold text-foreground">
+                {SECTIONS.find((s) => s.key === activeSection)?.label}
+              </h2>
+              {isEditableSection && (
+                !editing ? (
+                  <button onClick={startEdit} className="btn-outline text-sm inline-flex items-center gap-2">
+                    <Pencil className="w-4 h-4" /> Edit
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={cancelEdit} disabled={saving} className="btn-outline text-sm inline-flex items-center gap-2">
+                      <X className="w-4 h-4" /> Cancel
+                    </button>
+                    <button onClick={saveEdit} disabled={saving} className="btn-primary text-sm inline-flex items-center gap-2">
+                      <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
+
+            {activeSection === 'personal' && (
+              editing ? (
+                <PersonalInfoStep data={draftProfile} onChange={setDraftProfile} />
+              ) : (
+                <PersonalView profile={profile} />
+              )
+            )}
+
+            {activeSection === 'education' && (
+              editing ? (
+                <EducationStep data={draftEducation} onChange={setDraftEducation} />
+              ) : (
+                <EducationView data={education} />
+              )
+            )}
+
+            {activeSection === 'professional' && (
+              editing ? (
+                <ProfessionalBgStep data={draftProfessional} onChange={setDraftProfessional} />
+              ) : (
+                <ProfessionalView data={professional} />
+              )
+            )}
+
+            {activeSection === 'workExperience' && (
+              editing ? (
+                <WorkExperienceStep data={draftWorkExperiences} onChange={setDraftWorkExperiences} />
+              ) : (
+                <WorkExperienceView data={workExperiences} />
+              )
+            )}
+
+            {activeSection === 'tools' && (
+              editing ? (
+                <ToolsStep data={draftTools} onChange={setDraftTools} />
+              ) : (
+                <ToolsView data={tools} />
+              )
+            )}
+
+            {activeSection === 'skills' && (
+              editing ? (
+                <SkillsStep
+                  data={draftSkills}
+                  onChange={setDraftSkills}
+                  valueProposition={draftProfile.valueProposition}
+                  onValuePropositionChange={(v) =>
+                    setDraftProfile({ ...draftProfile, valueProposition: v })
+                  }
+                />
+              ) : (
+                <SkillsView data={skills} />
+              )
+            )}
+
+            {activeSection === 'portfolio' && (
+              editing ? (
+                <PortfolioStep
+                  portfolioLink={draftPortfolioLink}
+                  onPortfolioLinkChange={setDraftPortfolioLink}
+                  onFilesChange={setDraftPortfolioFiles}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {portfolioLink ? (
+                    <div>
+                      <h3 className="font-heading text-base font-semibold text-foreground mb-1">Portfolio Link</h3>
+                      <a
+                        href={portfolioLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline break-all"
+                      >
+                        {portfolioLink}
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No portfolio link provided.</p>
+                  )}
+                  {portfolioFileNames.length > 0 && (
+                    <div>
+                      <h3 className="font-heading text-base font-semibold text-foreground mb-2">Uploaded Files</h3>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {portfolioFileNames.map((n, i) => (
+                          <li key={`${n}-${i}`} className="text-sm text-foreground">{n}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+
+            {activeSection === 'certifications' && (
+              editing ? (
+                <CertificationsStep data={draftCertifications} onChange={setDraftCertifications} />
+              ) : (
+                <CertificationsView data={certifications} />
+              )
+            )}
+
+            {activeSection === 'valueProp' && (
+              editing ? (
+                <ValuePropositionStep
+                  value={draftProfile.valueProposition}
+                  onChange={(v) => setDraftProfile({ ...draftProfile, valueProposition: v })}
+                />
+              ) : (
+                profile.valueProposition ? (
+                  <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                    {profile.valueProposition}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No value proposition provided.</p>
+                )
+              )
+            )}
+
+            {activeSection === 'workSetup' && (
+              editing ? (
+                <WorkSetupStep data={draftWorkSetup} onChange={setDraftWorkSetup} />
+              ) : (
+                <WorkSetupView data={workSetup} />
+              )
+            )}
+
+            {activeSection === 'compliance' && (
+              editing ? (
+                <ComplianceStep data={draftCompliance} onChange={setDraftCompliance} />
+              ) : (
+                <ComplianceView data={compliance} />
+              )
+            )}
+          </div>
+        </div>
+      </main>
+
+      <Dialog open={assessmentOpen} onOpenChange={(o) => { if (!submittingAssessment) setAssessmentOpen(o); }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Values Assessment</DialogTitle>
+            <DialogDescription>
+              Please complete the Values Assessment to continue with your reapplication.
+              Drag each option to rank from most (top) to least (bottom) reflective of you.
+            </DialogDescription>
+          </DialogHeader>
+          <ValuesAssessmentStep questions={assessment} onChange={setAssessment} />
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setAssessmentOpen(false)}
+              disabled={submittingAssessment}
+              className="btn-outline"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitAssessment}
+              disabled={submittingAssessment}
+              aria-busy={submittingAssessment}
+              className="btn-primary inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {submittingAssessment && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+              {submittingAssessment ? 'Submitting…' : 'Submit Assessment & Continue'}
+            </button>
+
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assessmentConfirmOpen} onOpenChange={setAssessmentConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assessment submitted</DialogTitle>
+            <DialogDescription>
+              Thank you. Your Values Assessment has been recorded. You can now
+              continue with your reapplication.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setAssessmentConfirmOpen(false)}
+              className="btn-outline"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAssessmentConfirmOpen(false);
+                setReapplyOpen(true);
+              }}
+              className="btn-primary"
+            >
+              Continue to Reapply
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attendance: Login availability picker */}
+      <Dialog open={attendanceLoginOpen} onOpenChange={(o) => { if (!attendanceSubmitting) setAttendanceLoginOpen(o); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Login — select availability</DialogTitle>
+            <DialogDescription>
+              Choose what you are available for today. Your selection will be
+              recorded with today's date.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {([
+              'available for training only',
+              'available for client pairing only',
+              'available for both client and training',
+            ] as AttendanceAvailability[]).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => handleAttendance('login', opt)}
+                disabled={attendanceSubmitting}
+                className="w-full text-left btn-outline px-4 py-3 capitalize disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setAttendanceLoginOpen(false)}
+              disabled={attendanceSubmitting}
+              className="btn-outline"
+            >
+              Cancel
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+
+
+
+      <Dialog open={reapplyOpen} onOpenChange={setReapplyOpen}>
+
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reapply</DialogTitle>
+            <DialogDescription>
+              Will you be applying using a referral code? You can paste a referral link
+              (with <code>?ref=</code>) or just the code itself. Leave blank if none.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="form-label">Referral code or link (optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. ABC123 or https://...?ref=ABC123"
+              value={reapplyCode}
+              onChange={(e) => setReapplyCode(e.target.value)}
+              className="form-input"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setReapplyOpen(false)}
+              disabled={reapplying}
+              className="btn-outline"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitReapply}
+              disabled={reapplying}
+              className="btn-primary"
+            >
+              {reapplying ? 'Submitting...' : 'Submit Reapplication'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Footer />
+    </div>
+  );
+};
+
+const EmptySectionView = ({ label }: { label: string }) => (
+  <div className="text-center py-12">
+    <p className="text-sm text-muted-foreground italic">
+      No {label} information saved yet. Click <span className="font-medium text-foreground">Edit</span> to add details.
+    </p>
+  </div>
+);
+
+const isWorkSetupEmpty = (d: WorkSetupData) =>
+  !d.primaryDevice && !d.secondaryDevice && !d.primaryISP && !d.secondaryISP && !d.headset && !d.webcam;
+
+const WorkSetupView = ({ data }: { data: WorkSetupData }) => {
+  if (isWorkSetupEmpty(data)) return <EmptySectionView label="work setup" />;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <Field label="Primary Device" value={data.primaryDevice} />
+        <Field label="Secondary Device" value={data.secondaryDevice} />
+        <Field label="Noise-cancelling Headset" value={data.headset ? 'Yes' : 'No'} />
+        <Field label="HD Webcam" value={data.webcam ? 'Yes' : 'No'} />
+        <Field label="Primary Internet Provider" value={data.primaryISP} />
+        <Field label="Secondary Internet Provider" value={data.secondaryISP} />
+      </div>
+    </div>
+  );
+};
+
+const isComplianceEmpty = (d: ComplianceFormData) =>
+  !d.authorized && !d.nbiValidity && !d.policeValidity && !d.proofOfSeparation;
+
+const ComplianceView = ({ data }: { data: ComplianceFormData }) => {
+  if (isComplianceEmpty(data)) return <EmptySectionView label="compliance" />;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <Field label="Background Check Authorized" value={data.authorized ? 'Yes' : 'No'} />
+        <Field label="NBI Clearance Valid Until" value={data.nbiValidity} />
+        <Field label="Police Clearance Valid Until" value={data.policeValidity} />
+        <Field
+          label="Proof of Separation / COE"
+          value={data.proofOfSeparation?.name ? data.proofOfSeparation.name : ''}
+        />
+      </div>
+    </div>
+  );
+};
+
+const Field = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
+    <p className="text-sm text-foreground">
+      {value || <span className="text-muted-foreground italic">Not provided</span>}
+    </p>
+  </div>
+);
+
+const PersonalView = ({ profile }: { profile: PersonalInfo }) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+      <Field label="First Name" value={profile.firstName} />
+      <Field label="Middle Name" value={profile.middleName} />
+      <Field label="Last Name" value={profile.lastName} />
+      <Field label="Suffix" value={profile.suffix} />
+      <Field label="Date of Birth" value={profile.dateOfBirth} />
+      <Field label="Phone Number" value={profile.phoneNumber} />
+      <Field label="Languages Spoken" value={profile.languagesSpoken} />
+      <Field label="House No. / Street" value={profile.houseStreet} />
+      <Field label="Barangay" value={profile.barangay} />
+      <Field label="City / Province" value={profile.city} />
+      <Field label="Country" value={profile.country} />
+      <Field label="Nationality" value={profile.nationality} />
+    </div>
+  </div>
+);
+
+const EducationView = ({ data }: { data: Education }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+    <Field label="Highest Level" value={data.highestLevel} />
+    <Field label="Degree / Field" value={data.degreeField} />
+    <Field label="School Name" value={data.schoolName} />
+    <Field label="School Location" value={data.schoolLocation} />
+    <Field label="Graduation Date" value={data.graduationDate} />
+  </div>
+);
+
+const ProfessionalView = ({ data }: { data: ProfessionalBackground }) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+      <Field label="Preferred Industry" value={data.preferredIndustry} />
+      <Field label="Preferred Role" value={data.preferredRole} />
+      <Field label="Availability" value={data.schedule} />
+      <Field label="Hours Per Day" value={data.hoursPerDay} />
+    </div>
+  </div>
+);
+
+const WorkExperienceView = ({ data }: { data: WorkExperience[] }) => (
+  data.length === 0 ? (
+    <p className="text-sm text-muted-foreground italic">No work experience added yet.</p>
+  ) : (
+    <div className="space-y-4">
+      {data.map((w) => (
+        <div key={w.id} className="border border-border rounded-xl p-4">
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <p className="text-sm font-semibold text-foreground">{w.title || 'Untitled role'}</p>
+              <p className="text-xs text-muted-foreground">
+                {w.employer || 'Employer'}{w.location ? ` · ${w.location}` : ''}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground whitespace-nowrap">
+              {w.startDate || '—'} – {w.currentlyWorking ? 'Present' : (w.endDate || '—')}
+            </p>
+          </div>
+          {w.responsibilities && (
+            <p className="text-sm text-foreground mt-2 whitespace-pre-line">{w.responsibilities}</p>
+          )}
+          {w.toolsPlatforms && (
+            <p className="text-xs text-muted-foreground mt-2"><span className="font-medium">Tools:</span> {w.toolsPlatforms}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+);
+
+const CertificationsView = ({ data }: { data: Certification[] }) => (
+  data.length === 0 ? (
+    <p className="text-sm text-muted-foreground italic">No certifications added yet.</p>
+  ) : (
+    <div className="space-y-3">
+      {data.map((c) => (
+        <div key={c.id} className="border border-border rounded-xl p-4">
+          <p className="text-sm font-semibold text-foreground">{c.title || 'Untitled certification'}</p>
+          <p className="text-xs text-muted-foreground">{c.organization || 'Issuer'}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 text-xs text-muted-foreground">
+            {c.dateCompleted && <span><span className="font-medium">Completed:</span> {c.dateCompleted}</span>}
+            {c.expirationDate && <span><span className="font-medium">Expires:</span> {c.expirationDate}</span>}
+            {c.credentialId && <span><span className="font-medium">ID:</span> {c.credentialId}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+);
+
+const SkillsView = ({ data }: { data: SelectedSkill[] }) => (
+  data.length === 0 ? (
+    <p className="text-sm text-muted-foreground italic">No skills added yet.</p>
+  ) : (
+    <div className="flex flex-wrap gap-2">
+      {data.map((s) => (
+        <span key={s.skill} className="skill-chip skill-chip-active">
+          {s.skill} — {s.proficiency}
+        </span>
+      ))}
+    </div>
+  )
+);
+
+const ToolsView = ({ data }: { data: SelectedTool[] }) => (
+  data.length === 0 ? (
+    <p className="text-sm text-muted-foreground italic">No tools or platforms added yet.</p>
+  ) : (
+    <div className="flex flex-wrap gap-2">
+      {data.map((t) => (
+        <span key={t.tool} className="skill-chip skill-chip-active">
+          {t.tool} — {t.proficiency}
+        </span>
+      ))}
+    </div>
+  )
+);
+
+const PersonalEditForm = ({
+  draft,
+  update,
+  onPhotoChange,
+  photoInputRef,
+}: {
+  draft: PersonalInfo;
+  update: (field: keyof PersonalInfo, value: string) => void;
+  onPhotoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  photoInputRef: React.RefObject<HTMLInputElement>;
+}) => (
+  <div className="space-y-6">
+    <div>
+      <label className="form-label">Profile Photo</label>
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        onChange={onPhotoChange}
+        className="text-sm"
+      />
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div><label className="form-label">First Name</label><input className="form-input" value={draft.firstName} onChange={(e) => update('firstName', e.target.value)} /></div>
+      <div><label className="form-label">Middle Name</label><input className="form-input" value={draft.middleName} onChange={(e) => update('middleName', e.target.value)} /></div>
+      <div><label className="form-label">Last Name</label><input className="form-input" value={draft.lastName} onChange={(e) => update('lastName', e.target.value)} /></div>
+      <div><label className="form-label">Suffix</label><input className="form-input" value={draft.suffix} onChange={(e) => update('suffix', e.target.value)} /></div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div><label className="form-label">Date of Birth</label><input type="date" className="form-input" value={draft.dateOfBirth} onChange={(e) => update('dateOfBirth', e.target.value)} /></div>
+      <div className="lg:col-span-2">
+        <label className="form-label">Phone Number</label>
+        <PhoneInput
+          value={draft.phoneNumber}
+          onChange={(v) => update('phoneNumber', v)}
+          countryName={draft.phoneCountry}
+          onCountryChange={(c) => update('phoneCountry', c)}
+        />
+      </div>
+      <div><label className="form-label">Languages Spoken</label><input className="form-input" value={draft.languagesSpoken} onChange={(e) => update('languagesSpoken', e.target.value)} /></div>
+      <div>
+        <label className="form-label">Country</label>
+        <SearchableSelect value={draft.country} onChange={(v) => update('country', v)} options={COUNTRY_NAMES} placeholder="Select country..." />
+      </div>
+      <div>
+        <label className="form-label">Nationality</label>
+        <SearchableSelect value={draft.nationality} onChange={(v) => update('nationality', v)} options={NATIONALITIES} placeholder="Select nationality..." />
+      </div>
+      {draft.country === 'Philippines' ? (
+        <>
+          <div><label className="form-label">House No. / Street</label><input className="form-input" value={draft.houseStreet} onChange={(e) => update('houseStreet', e.target.value)} /></div>
+          <div><label className="form-label">Barangay</label><input className="form-input" value={draft.barangay} onChange={(e) => update('barangay', e.target.value)} /></div>
+          <div><label className="form-label">City / Province</label><input className="form-input" value={draft.city} onChange={(e) => update('city', e.target.value)} /></div>
+        </>
+      ) : (
+        <div className="sm:col-span-2 lg:col-span-3"><label className="form-label">Address</label><input className="form-input" value={draft.address} onChange={(e) => update('address', e.target.value)} /></div>
+      )}
+    </div>
+  </div>
+);
+
+export default Dashboard;

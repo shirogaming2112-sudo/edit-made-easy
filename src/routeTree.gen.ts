@@ -9,38 +9,195 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as HeadHuntingRouteImport } from './routes/head-hunting'
+import { Route as DavaoHubRouteImport } from './routes/davao-hub'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ComplianceDocsURouteImport } from './routes/compliance-docs-u'
+import { Route as AttendanceRouteImport } from './routes/attendance'
+import { Route as AssessmentResultRouteImport } from './routes/assessment-result'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SourceNameRouteImport } from './routes/source.$name'
 
+const HeadHuntingRoute = HeadHuntingRouteImport.update({
+  id: '/head-hunting',
+  path: '/head-hunting',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DavaoHubRoute = DavaoHubRouteImport.update({
+  id: '/davao-hub',
+  path: '/davao-hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComplianceDocsURoute = ComplianceDocsURouteImport.update({
+  id: '/compliance-docs-u',
+  path: '/compliance-docs-u',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttendanceRoute = AttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssessmentResultRoute = AssessmentResultRouteImport.update({
+  id: '/assessment-result',
+  path: '/assessment-result',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SourceNameRoute = SourceNameRouteImport.update({
+  id: '/source/$name',
+  path: '/source/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/assessment-result': typeof AssessmentResultRoute
+  '/attendance': typeof AttendanceRoute
+  '/compliance-docs-u': typeof ComplianceDocsURoute
+  '/dashboard': typeof DashboardRoute
+  '/davao-hub': typeof DavaoHubRoute
+  '/head-hunting': typeof HeadHuntingRoute
+  '/source/$name': typeof SourceNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/assessment-result': typeof AssessmentResultRoute
+  '/attendance': typeof AttendanceRoute
+  '/compliance-docs-u': typeof ComplianceDocsURoute
+  '/dashboard': typeof DashboardRoute
+  '/davao-hub': typeof DavaoHubRoute
+  '/head-hunting': typeof HeadHuntingRoute
+  '/source/$name': typeof SourceNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/assessment-result': typeof AssessmentResultRoute
+  '/attendance': typeof AttendanceRoute
+  '/compliance-docs-u': typeof ComplianceDocsURoute
+  '/dashboard': typeof DashboardRoute
+  '/davao-hub': typeof DavaoHubRoute
+  '/head-hunting': typeof HeadHuntingRoute
+  '/source/$name': typeof SourceNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/assessment-result'
+    | '/attendance'
+    | '/compliance-docs-u'
+    | '/dashboard'
+    | '/davao-hub'
+    | '/head-hunting'
+    | '/source/$name'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/assessment-result'
+    | '/attendance'
+    | '/compliance-docs-u'
+    | '/dashboard'
+    | '/davao-hub'
+    | '/head-hunting'
+    | '/source/$name'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/assessment-result'
+    | '/attendance'
+    | '/compliance-docs-u'
+    | '/dashboard'
+    | '/davao-hub'
+    | '/head-hunting'
+    | '/source/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  AssessmentResultRoute: typeof AssessmentResultRoute
+  AttendanceRoute: typeof AttendanceRoute
+  ComplianceDocsURoute: typeof ComplianceDocsURoute
+  DashboardRoute: typeof DashboardRoute
+  DavaoHubRoute: typeof DavaoHubRoute
+  HeadHuntingRoute: typeof HeadHuntingRoute
+  SourceNameRoute: typeof SourceNameRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/head-hunting': {
+      id: '/head-hunting'
+      path: '/head-hunting'
+      fullPath: '/head-hunting'
+      preLoaderRoute: typeof HeadHuntingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/davao-hub': {
+      id: '/davao-hub'
+      path: '/davao-hub'
+      fullPath: '/davao-hub'
+      preLoaderRoute: typeof DavaoHubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compliance-docs-u': {
+      id: '/compliance-docs-u'
+      path: '/compliance-docs-u'
+      fullPath: '/compliance-docs-u'
+      preLoaderRoute: typeof ComplianceDocsURouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attendance': {
+      id: '/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AttendanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assessment-result': {
+      id: '/assessment-result'
+      path: '/assessment-result'
+      fullPath: '/assessment-result'
+      preLoaderRoute: typeof AssessmentResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +205,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/source/$name': {
+      id: '/source/$name'
+      path: '/source/$name'
+      fullPath: '/source/$name'
+      preLoaderRoute: typeof SourceNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  AssessmentResultRoute: AssessmentResultRoute,
+  AttendanceRoute: AttendanceRoute,
+  ComplianceDocsURoute: ComplianceDocsURoute,
+  DashboardRoute: DashboardRoute,
+  DavaoHubRoute: DavaoHubRoute,
+  HeadHuntingRoute: HeadHuntingRoute,
+  SourceNameRoute: SourceNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

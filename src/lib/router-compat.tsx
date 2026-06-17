@@ -43,7 +43,7 @@ export function useSearchParams(): [
   URLSearchParams,
   (next: URLSearchParams | Record<string, string>) => void,
 ] {
-  const search = useRouterState({ select: (s) => s.location.search }) as Record<string, unknown>;
+  const search = useRouterState({ select: (s) => s.location.search }) as unknown as Record<string, unknown>;
   const params = new URLSearchParams();
   Object.entries(search || {}).forEach(([k, v]) => {
     if (v != null) params.set(k, String(v));

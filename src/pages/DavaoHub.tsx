@@ -11,7 +11,7 @@ const DavaoHub = () => {
     return () => setDavaohub(false);
   }, []);
 
-  const ref = new URLSearchParams(window.location.search).get('ref') || '';
+  const ref = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('ref') || '') : '';
 
   if (!ready) return null;
   return <Index defaultReferralLink={ref} />;

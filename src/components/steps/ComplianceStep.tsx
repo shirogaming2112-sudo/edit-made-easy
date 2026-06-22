@@ -32,7 +32,8 @@ const PROOF_ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf
 
 const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
   const [internal, setInternal] = useState<ComplianceFormData>(emptyCompliance);
-  const [canSubmitDocs, setCanSubmitDocs] = useState<'yes' | 'no' | ''>('');
+  const [canSubmitNbiPolice, setCanSubmitNbiPolice] = useState<'yes' | 'no' | ''>('');
+  const [canSubmitCoe, setCanSubmitCoe] = useState<'yes' | 'no' | ''>('');
   const value = data ?? internal;
   const update = <K extends keyof ComplianceFormData>(field: K, v: ComplianceFormData[K]) => {
     const next = { ...value, [field]: v };
@@ -95,29 +96,30 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
         <FileDropzone label="valid-id" imagesOnly multiple={false} maxFiles={1} onFilesSelected={(files) => update('validId', files[0] ?? null)} />
       </div>
 
+      {/* NBI + Police gate */}
       <div className="border border-border rounded-xl p-4 space-y-3">
         <p className="text-sm font-semibold text-foreground">
-          Are you able to submit your NBI Clearance, Police Clearance, and/or Certificate of Employment (COE) at this time?
+          Are you able to submit your NBI Clearance and Police Clearance at this time?
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             type="button"
-            onClick={() => setCanSubmitDocs('yes')}
-            className={canSubmitDocs === 'yes' ? 'btn-primary px-6' : 'btn-outline px-6'}
+            onClick={() => setCanSubmitNbiPolice('yes')}
+            className={canSubmitNbiPolice === 'yes' ? 'btn-primary px-6' : 'btn-outline px-6'}
           >
             Yes, I can submit now
           </button>
           <button
             type="button"
-            onClick={() => setCanSubmitDocs('no')}
-            className={canSubmitDocs === 'no' ? 'btn-primary px-6' : 'btn-outline px-6'}
+            onClick={() => setCanSubmitNbiPolice('no')}
+            className={canSubmitNbiPolice === 'no' ? 'btn-primary px-6' : 'btn-outline px-6'}
           >
             No, I'll submit later
           </button>
         </div>
       </div>
 
-      {canSubmitDocs === 'yes' && (
+      {canSubmitNbiPolice === 'yes' && (
         <>
           <div className="space-y-3 border border-border rounded-xl p-4">
             <RequiredLabel>NBI Clearance</RequiredLabel>
@@ -148,27 +150,69 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
               <p className="text-xs text-muted-foreground mt-1">Indicate the validity date shown on the document.</p>
             </div>
           </div>
-
-          <div className="space-y-3 border border-border rounded-xl p-4">
-            <RequiredLabel>Proof of Separation / Certificate of Employment</RequiredLabel>
-            <FileDropzone
-              label="proof-of-separation"
-              imagesOnly={false}
-              multiple={false}
-              maxFiles={1}
-              accept="image/jpeg,image/png,application/pdf"
-              onFilesSelected={handleProofSelected}
-            />
-            <p className="text-xs text-muted-foreground">Accepted formats: JPG, PNG, or PDF. Only one file allowed.</p>
-          </div>
         </>
       )}
 
-      {canSubmitDocs === 'no' && (
+      {canSubmitNbiPolice === 'no' && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
           <p className="text-sm font-semibold text-foreground">No problem — submit them later</p>
           <p className="text-sm text-muted-foreground">
-            You can submit your NBI Clearance, Police Clearance, and Certificate of Employment anytime through our compliance documents portal.
+            You can submit your NBI Clearance and Police Clearance anytime through our compliance documents portal.
+          </p>
+          <a
+            href="/compliance-docs-u"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block text-sm font-semibold text-primary hover:underline"
+          >
+            Open Compliance Documents Portal →
+          </a>
+        </div>
+      )}
+
+      {/* COE gate */}
+      <div className="border border-border rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-foreground">
+          Are you able to submit your Certificate of Employment (COE) at this time?
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={() => setCanSubmitCoe('yes')}
+            className={canSubmitCoe === 'yes' ? 'btn-primary px-6' : 'btn-outline px-6'}
+          >
+            Yes, I can submit now
+          </button>
+          <button
+            type="button"
+            onClick={() => setCanSubmitCoe('no')}
+            className={canSubmitCoe === 'no' ? 'btn-primary px-6' : 'btn-outline px-6'}
+          >
+            No, I'll submit later
+          </button>
+        </div>
+      </div>
+
+      {canSubmitCoe === 'yes' && (
+        <div className="space-y-3 border border-border rounded-xl p-4">
+          <RequiredLabel>Proof of Separation / Certificate of Employment</RequiredLabel>
+          <FileDropzone
+            label="proof-of-separation"
+            imagesOnly={false}
+            multiple={false}
+            maxFiles={1}
+            accept="image/jpeg,image/png,application/pdf"
+            onFilesSelected={handleProofSelected}
+          />
+          <p className="text-xs text-muted-foreground">Accepted formats: JPG, PNG, or PDF. Only one file allowed.</p>
+        </div>
+      )}
+
+      {canSubmitCoe === 'no' && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+          <p className="text-sm font-semibold text-foreground">No problem — submit it later</p>
+          <p className="text-sm text-muted-foreground">
+            You can submit your Certificate of Employment anytime through our compliance documents portal.
           </p>
           <a
             href="/compliance-docs-u"

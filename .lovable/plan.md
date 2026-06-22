@@ -1,52 +1,60 @@
-## Goal
+## Scope
 
-Polish the design-system primitives so disabled states, spacing, cursors, and focus rings all read as professional and accessible across the app.
+Four targeted changes — no other behavior touched.
 
-## Changes
+### 1. NDA modal copy (`src/components/common/NdaModal.tsx`)
+Replace the entire scrollable body with the verbatim text provided by the user, preserving the existing scroll/agree/continue flow (scroll-to-end gate → checkbox → Continue button). Sections to render:
+- Header "NON-DISCLOSURE AGREEMENT / PRIOR INTERVIEW PROCESS"
+- "WARNING: No Recording and Copying" paragraph
+- "No Conflict of Interest/ Affiliation clause" paragraph
+- "Authorization" block (six paragraphs)
+- "NON-DISCLOSURE AGREEMENT FOR ASPIRING CYBERBACKERS" header
+- Preamble (Cyberbacker Inc., represented by President **Shiela Mie Legaspi** — updated from current "CEO Craig Goodliffe")
+- Numbered clauses 1–11 (new clause 4 "Data Privacy Notice, Consent, and Rights of the Applicant"; renumbered Specific Performance → 5, etc.; new clause 11 "Effective Date and Acceptance")
+- Closing acknowledgement paragraph
+- Final line: "I have read and agree to the terms of the Non-Disclosure Agreement"
 
-### 1. Disabled states (consistent across all controls)
+Checkbox label stays the same. No structural/CSS changes.
 
-- `src/components/ui/button.tsx`: extend disabled class to `disabled:pointer-events-none disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-muted disabled:text-muted-foreground` (variant-aware: keep `bg-muted` only for solid variants; outline/ghost get `disabled:border-border disabled:text-muted-foreground`).
-- `src/components/ui/input.tsx`, `textarea.tsx`, `select.tsx`: standardize disabled to `disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-muted/50 disabled:text-muted-foreground disabled:hover:border-input` so hover treatment doesn't fight the disabled look.
+### 2. Compliance step questions (`src/components/steps/ComplianceStep.tsx`)
+Split the single Yes/No gate into two independent questions, each driving its own uploads.
 
-### 2. Padding, spacing, border widths (uniform)
+- **Question A:** "Are you able to submit your NBI Clearance and Police Clearance at this time?" → Yes reveals the NBI block + Police block (with their date inputs). No shows the existing later-submission notice scoped to NBI/Police.
+- **Question B:** "Are you able to submit your Certificate of Employment (COE) at this time?" → Yes reveals the Proof of Separation / COE dropzone block. No shows a later-submission notice scoped to COE.
 
-- Inputs / Textarea / SelectTrigger: settle on `h-11` (textarea `min-h-[112px]`), `px-3.5`, `py-2.5`, `rounded-lg`, **border-[1.5px]** for consistent visual weight against the blue brand.
-- Button: settle on `rounded-lg`, `gap-2`, sizes `sm h-9 px-4`, `default h-10 px-5`, `lg h-12 px-8 text-base`, `icon h-10 w-10`. Outline gets `border-[1.5px]` to match form controls.
-- Add `src/components/ui/label.tsx` tweak: `text-sm font-medium leading-none mb-1.5 inline-block` so form rows align consistently.
-- `src/components/ui/form.tsx` FormItem: bump `space-y-2` → `space-y-2` kept, FormMessage given `mt-1.5` for breathing room (verify file first).
+State changes:
+- Replace `canSubmitDocs` with `canSubmitNbiPolice` and `canSubmitCoe` (`'yes' | 'no' | ''`).
+- Reminder list bullet wording unchanged.
 
-### 3. Pointer cursor everywhere
+### 3. Industry → Role filtering (`src/components/steps/ProfessionalBgStep.tsx` + new `src/data/industryRoleMatrix.ts`)
+Add a typed matrix file derived from the uploaded Excel: `INDUSTRY_ROLE_MATRIX: Record<string, RoleName[]>` listing only roles whose cell is TRUE. Key observations from the sheet:
+- Default row (used by every industry except Leasing and Real Estate): Cyberbacker, Marketing Backer, Appointment Setter, Web Developer, Social Media Backer, Bookkeeper, Video Editor, Concierge Backer, Software Backer, DevOps Backend Engineer, AI Service Delivery Specialist, Client Experience Apprentice.
+- **Leasing** adds: Listing Backer, Property Management Backer, Transaction Backer.
+- **Real Estate** adds: Listing Backer, Property Management Backer, Transaction Backer, Productivity Backer.
+- `Growthbacker`, `Cyber Recruiter`, `Lead Backer`, `Facilitator Support - Cyberbacker University` are FALSE for every industry → not selectable from the wizard.
 
-- Already added a global `@layer base` rule in `src/styles.css` for `button`, `[role="button"]`, `a[href]`, `label[for]`, `summary`, `select`. Extend to include `[role="combobox"]`, `[role="switch"]`, `[role="checkbox"]`, `[role="radio"]`, `[role="tab"]`, `[role="menuitem"]`, `[role="option"]`, and `summary` — covers Radix-based shadcn primitives (Select trigger, Switch, Checkbox, Tabs, etc.). 
-- Keep `input:not([type="checkbox"]):not([type="radio"]):not([type="file"])` with default text cursor (no override needed; text inputs keep I-beam, which is correct UX). For file inputs add `cursor-pointer` on `::file-selector-button`.
+Matrix uses canonical role labels from `ROLE_OPTIONS`. The matrix's "Bookkeeper" maps to `"Bookkeeper Backer"` (the existing canonical label) so no rename of the role config is needed.
 
-### 4. Accessible focus styles
+In `ProfessionalBgStep`:
+- When `preferredIndustry` is empty → render the role chips section with a muted helper "Select a preferred industry to see matching roles" and no chips.
+- When `preferredIndustry` is set → compute `availableRoles = INDUSTRY_ROLE_MATRIX[data.preferredIndustry] ?? []` and render chips only for those.
+- On industry change, drop any selected roles that are no longer in `availableRoles` (`update` both fields in one `onChange`).
+- The "View role descriptions" modal continues to use the full role catalog — no change to `RoleInfoModal`.
 
-- Switch focus from `ring-2 ring-primary/20` (subtle) to a stronger keyboard-visible ring: `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background` for buttons.
-- For form controls (input/textarea/select), use a layered focus: `focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0` so the border darkens AND a soft halo appears — distinguishable from hover, visible against the light-blue page background.
-- Mouse focus stays quiet (no ring on `:focus` without `-visible`), satisfying WCAG 2.4.7 without nagging mouse users.
-- Add a project-wide focus reset in `src/styles.css`:
-  ```css
-  @layer base {
-    :focus-visible { outline: none; }
-  }
-  ```
-  so legacy elements rely on the ring utility instead of dual outlines.
+### 4. Verify `/source/:name` dynamic route is wired
+The route already exists (`src/routes/source.$name.tsx` → `src/pages/Source.tsx`) and reads the `name` param via `useParams` and `?ref=` via `URLSearchParams`. After the other edits, run Playwright against `http://localhost:8080/source/test-campaign?ref=abc123` and confirm:
+- Page renders the Index wizard (not NotFound).
+- `setSourcing(true)` / `setSourceName('test-campaign')` are applied (verify via the referral-source UI on the form).
 
-5. Design  
-  
-could you follow the design in the rar file because textboxes are short and buttons that previousely has a blue color now its not just a white background
-
-## Verification
-
-- Drive Playwright on `/` and `/source/test`:
-  - Screenshot a button row (default, outline, disabled).
-  - Screenshot an input row (idle, hover, focus-visible via `page.keyboard.press('Tab')`, disabled).
-  - Confirm hand cursor by checking computed `cursor` on a sample of elements (`button`, `[role=combobox]`, `a[href]`).
-- Confirm no TS / console errors.
+If the route resolves blank or 404s, add it to `src/routeTree.gen.ts` regeneration trigger by saving the route file (TanStack plugin regenerates automatically) and re-test. No code change expected unless the Playwright check fails.
 
 ## Out of scope
+- No changes to styles, layout, other steps, or business logic.
+- No changes to `roleDescriptions.ts` content; only filtering which chips render.
+- No changes to validation schemas unless the compliance split surfaces a schema error at runtime (in which case update `wizardSchemas.ts` to mirror the two new gates).
 
-- No copy or layout changes to pages.
-- No new variants or component APIs.
+## Verification
+- Open NDA modal → scroll to bottom → checkbox appears → Continue enables. Spot-check new section headings render.
+- Compliance step: toggle each Yes/No independently and confirm the right blocks show.
+- Professional Background: pick Accounting → 12 chips; pick Real Estate → 16 chips including Listing/Property/Transaction/Productivity; switch industries with roles selected → invalid roles drop.
+- `/source/demo?ref=xyz` loads the wizard with referral pre-filled.

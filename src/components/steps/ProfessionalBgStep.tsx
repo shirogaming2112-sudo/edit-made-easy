@@ -5,7 +5,8 @@ import RequiredLabel from '@/components/wizard/RequiredLabel';
 import SearchableSelect from '@/components/common/SearchableSelect';
 import RoleInfoModal from '@/components/common/RoleInfoModal';
 import { INDUSTRY_OPTIONS } from '@/data/industries';
-import { ROLE_OPTIONS, type RoleName } from '@/data/roleDescriptions';
+import { type RoleName } from '@/data/roleDescriptions';
+import { getRolesForIndustry } from '@/data/industryRoleMatrix';
 
 interface ProfessionalBgStepProps {
   data: ProfessionalBackground;
@@ -32,10 +33,18 @@ const ProfessionalBgStep = ({ data, onChange }: ProfessionalBgStepProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const availableRoles = getRolesForIndustry(data.preferredIndustry);
+
   const selectedRoles = (data.preferredRole || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+
+  const handleIndustryChange = (v: string) => {
+    const nextAvailable = getRolesForIndustry(v);
+    const filteredRoles = selectedRoles.filter((r) => nextAvailable.includes(r as RoleName));
+    onChange({ ...data, preferredIndustry: v, preferredRole: filteredRoles.join(', ') });
+  };
 
   const toggleRole = (role: string) => {
     const exists = selectedRoles.includes(role);
@@ -67,7 +76,7 @@ const ProfessionalBgStep = ({ data, onChange }: ProfessionalBgStepProps) => {
         <RequiredLabel>Preferred Industry</RequiredLabel>
         <SearchableSelect
           value={data.preferredIndustry}
-          onChange={(v) => update('preferredIndustry', v)}
+          onChange={handleIndustryChange}
           options={[...INDUSTRY_OPTIONS]}
           placeholder="Select an industry..."
         />
@@ -85,33 +94,41 @@ const ProfessionalBgStep = ({ data, onChange }: ProfessionalBgStepProps) => {
             View role descriptions
           </button>
         </div>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {ROLE_OPTIONS.map((r) => {
-            const active = selectedRoles.includes(r);
-            const disabled = !active && selectedRoles.length >= 3;
-            return (
-              <div key={r} className="inline-flex items-center">
-                <button
-                  type="button"
-                  onClick={() => toggleRole(r)}
-                  disabled={disabled}
-                  className={`skill-chip ${active ? 'skill-chip-active' : 'skill-chip-inactive'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {r}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openRoleInfo(r)}
-                  className="ml-1 text-muted-foreground hover:text-primary"
-                  aria-label={`About ${r}`}
-                >
-                  <Info className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">{selectedRoles.length}/3 selected</p>
+        {availableRoles.length === 0 ? (
+          <p className="text-sm text-muted-foreground mt-2 italic">
+            Select a preferred industry to see matching roles.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {availableRoles.map((r) => {
+                const active = selectedRoles.includes(r);
+                const disabled = !active && selectedRoles.length >= 3;
+                return (
+                  <div key={r} className="inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => toggleRole(r)}
+                      disabled={disabled}
+                      className={`skill-chip ${active ? 'skill-chip-active' : 'skill-chip-inactive'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {r}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openRoleInfo(r)}
+                      className="ml-1 text-muted-foreground hover:text-primary"
+                      aria-label={`About ${r}`}
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{selectedRoles.length}/3 selected</p>
+          </>
+        )}
       </div>
 
       <div>

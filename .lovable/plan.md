@@ -1,60 +1,61 @@
+## Goal
+
+Replace the current TanStack Start setup with a standard Vite + React + React Router project that mirrors the original `Application-Site-V3-FE.rar` structure, while upgrading packages to current latest stable versions. All existing pages/components/wizard logic (NDA modal, ComplianceStep, ProfessionalBgStep with industry-role matrix, source/:name route, etc.) continue to work identically.
+
 ## Scope
 
-Four targeted changes — no other behavior touched.
+### Remove TanStack Start scaffolding
 
-### 1. NDA modal copy (`src/components/common/NdaModal.tsx`)
-Replace the entire scrollable body with the verbatim text provided by the user, preserving the existing scroll/agree/continue flow (scroll-to-end gate → checkbox → Continue button). Sections to render:
-- Header "NON-DISCLOSURE AGREEMENT / PRIOR INTERVIEW PROCESS"
-- "WARNING: No Recording and Copying" paragraph
-- "No Conflict of Interest/ Affiliation clause" paragraph
-- "Authorization" block (six paragraphs)
-- "NON-DISCLOSURE AGREEMENT FOR ASPIRING CYBERBACKERS" header
-- Preamble (Cyberbacker Inc., represented by President **Shiela Mie Legaspi** — updated from current "CEO Craig Goodliffe")
-- Numbered clauses 1–11 (new clause 4 "Data Privacy Notice, Consent, and Rights of the Applicant"; renumbered Specific Performance → 5, etc.; new clause 11 "Effective Date and Acceptance")
-- Closing acknowledgement paragraph
-- Final line: "I have read and agree to the terms of the Non-Disclosure Agreement"
+- Delete: `src/router.tsx`, `src/start.ts`, `src/routes/` (entire dir incl. `__root.tsx`, `routeTree.gen.ts`, per-route files), `.tanstack/`, any `*.functions.ts` server-fn modules, `src/integrations/supabase/auth-middleware.ts` / `auth-attacher.ts` / `client.server.ts` if present.
+- Strip TanStack Start / Router / Start-Vite plugins from `package.json` and `vite.config.ts`.
 
-Checkbox label stays the same. No structural/CSS changes.
+### Restore standard Vite shell (matches RAR)
 
-### 2. Compliance step questions (`src/components/steps/ComplianceStep.tsx`)
-Split the single Yes/No gate into two independent questions, each driving its own uploads.
+- `index.html` at project root with `<div id="root">` and `<script type="module" src="/src/main.tsx">`.
+- `src/main.tsx` → `createRoot(...).render(<ErrorBoundary><App /></ErrorBoundary>)` with global error listeners (verbatim from RAR).
+- `src/App.tsx` → `QueryClientProvider` + `TooltipProvider` + `Toaster`/`Sonner` + `BrowserRouter` with the exact route table from the RAR:
+  - `/`, `/dashboard`, `/attendance` (Dashboard variant), `/admin`, `/assessment-result`, `/head-hunting`, `/davao-hub`, `/source/:name`, `/compliance-docs-u`, `*` → NotFound.
+- `src/pages/` directory with the page files (rename/move current route components into pages preserving their current content — keeping the recent NDA/Compliance/ProfessionalBg fixes intact).
+- Replace any `@tanstack/react-router` usage in components (`Link`, `useNavigate`, `useParams`, `createFileRoute`) with `react-router-dom` equivalents.
 
-- **Question A:** "Are you able to submit your NBI Clearance and Police Clearance at this time?" → Yes reveals the NBI block + Police block (with their date inputs). No shows the existing later-submission notice scoped to NBI/Police.
-- **Question B:** "Are you able to submit your Certificate of Employment (COE) at this time?" → Yes reveals the Proof of Separation / COE dropzone block. No shows a later-submission notice scoped to COE.
+### vite.config.ts
 
-State changes:
-- Replace `canSubmitDocs` with `canSubmitNbiPolice` and `canSubmitCoe` (`'yes' | 'no' | ''`).
-- Reminder list bullet wording unchanged.
+Plain config matching RAR: `@vitejs/plugin-react-swc`, `lovable-tagger` in dev, `@` alias, port 8080, `dedupe` for react/query.
 
-### 3. Industry → Role filtering (`src/components/steps/ProfessionalBgStep.tsx` + new `src/data/industryRoleMatrix.ts`)
-Add a typed matrix file derived from the uploaded Excel: `INDUSTRY_ROLE_MATRIX: Record<string, RoleName[]>` listing only roles whose cell is TRUE. Key observations from the sheet:
-- Default row (used by every industry except Leasing and Real Estate): Cyberbacker, Marketing Backer, Appointment Setter, Web Developer, Social Media Backer, Bookkeeper, Video Editor, Concierge Backer, Software Backer, DevOps Backend Engineer, AI Service Delivery Specialist, Client Experience Apprentice.
-- **Leasing** adds: Listing Backer, Property Management Backer, Transaction Backer.
-- **Real Estate** adds: Listing Backer, Property Management Backer, Transaction Backer, Productivity Backer.
-- `Growthbacker`, `Cyber Recruiter`, `Lead Backer`, `Facilitator Support - Cyberbacker University` are FALSE for every industry → not selectable from the wizard.
+### Tailwind
 
-Matrix uses canonical role labels from `ROLE_OPTIONS`. The matrix's "Bookkeeper" maps to `"Bookkeeper Backer"` (the existing canonical label) so no rename of the role config is needed.
+use tha latest tailwind and adjust the the code accordingly so that it will not break
 
-In `ProfessionalBgStep`:
-- When `preferredIndustry` is empty → render the role chips section with a muted helper "Select a preferred industry to see matching roles" and no chips.
-- When `preferredIndustry` is set → compute `availableRoles = INDUSTRY_ROLE_MATRIX[data.preferredIndustry] ?? []` and render chips only for those.
-- On industry change, drop any selected roles that are no longer in `availableRoles` (`update` both fields in one `onChange`).
-- The "View role descriptions" modal continues to use the full role catalog — no change to `RoleInfoModal`.
+### Package updates (latest stable as of 2026-06)
 
-### 4. Verify `/source/:name` dynamic route is wired
-The route already exists (`src/routes/source.$name.tsx` → `src/pages/Source.tsx`) and reads the `name` param via `useParams` and `?ref=` via `URLSearchParams`. After the other edits, run Playwright against `http://localhost:8080/source/test-campaign?ref=abc123` and confirm:
-- Page renders the Index wizard (not NotFound).
-- `setSourcing(true)` / `setSourceName('test-campaign')` are applied (verify via the referral-source UI on the form).
+- React 19.x + react-dom 19.x, @types/react 19.x
+- Vite 7.x, @vitejs/plugin-react-swc latest
+- TypeScript 5.9+
+- react-router-dom 7.x
+- @tanstack/react-query 5.x latest
+- All @radix-ui/* to current latest
+- lucide-react, zod 3.x latest, react-hook-form, date-fns 4.x, recharts 2.x, sonner, cmdk, vaul, embla, dnd-kit, jspdf, html2canvas, input-otp — all latest
+- tailwindcss 3.4.x (stay on v3 to match RAR), @tailwindcss/typography, tailwindcss-animate, autoprefixer, postcss — latest 3.x-compatible
+- eslint 9.x + typescript-eslint 8.x + react-hooks/react-refresh plugins — latest
+- Dev: vitest 3.x, @testing-library/react latest, jsdom latest, lovable-tagger latest, @types/node 22.x
 
-If the route resolves blank or 404s, add it to `src/routeTree.gen.ts` regeneration trigger by saving the route file (TanStack plugin regenerates automatically) and re-test. No code change expected unless the Playwright check fails.
+### Preservation checklist
+
+- Keep all files under `src/components/`, `src/hooks/`, `src/lib/`, `src/data/` (incl. new `industryRoleMatrix.ts`), `src/types/`, `src/assets/` unchanged in behavior.
+- Keep recent edits: NDA modal text, split NBI/Police vs COE compliance, industry-filtered roles, source/:name route.
+- Keep shadcn UI primitives (button/input/select/textarea) with their cursor/focus/padding refinements; only adjust class-source if Tailwind utility names changed.
+
+### Verification
+
+- `bun install` clean.
+- Dev server boots on :8080 and renders `/`, `/source/test?ref=abc`, `/admin`, `/dashboard`, `/compliance-docs-u` without console errors.
+- Playwright smoke: open `/`, advance one wizard step, open NDA modal, confirm content; navigate to `/source/test-campaign?ref=xyz` and confirm sourcing initializes.
 
 ## Out of scope
-- No changes to styles, layout, other steps, or business logic.
-- No changes to `roleDescriptions.ts` content; only filtering which chips render.
-- No changes to validation schemas unless the compliance split surfaces a schema error at runtime (in which case update `wizardSchemas.ts` to mirror the two new gates).
 
-## Verification
-- Open NDA modal → scroll to bottom → checkbox appears → Continue enables. Spot-check new section headings render.
-- Compliance step: toggle each Yes/No independently and confirm the right blocks show.
-- Professional Background: pick Accounting → 12 chips; pick Real Estate → 16 chips including Listing/Property/Transaction/Productivity; switch industries with roles selected → invalid roles drop.
-- `/source/demo?ref=xyz` loads the wizard with referral pre-filled.
+- No feature changes. No design changes beyond porting current tokens.
+- Lovable Cloud / Supabase backend wiring is not added (RAR has none).
+
+## Risk note
+
+The Lovable platform's default template is TanStack Start. Moving to plain Vite + React Router is fully supported at runtime but means features keyed off TanStack Start (server functions, file-based routing, SSR) are no longer available — matching the original RAR, which is a pure SPA.

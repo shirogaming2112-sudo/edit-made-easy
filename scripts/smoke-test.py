@@ -72,10 +72,11 @@ async def run():
         try:
             await page.get_by_role("button", name="Create My Profile").click()
             await expect_visible(page, "text=Account Creation", "Signup dialog")
-            await page.locator("input[type='email']").last.fill("smoke@test.dev")
-            pwd_inputs = page.locator("input[type='password']")
-            await pwd_inputs.nth(0).fill("Password123")
-            await pwd_inputs.nth(1).fill("Password123")
+            dialog = page.get_by_role("dialog").filter(has_text="Account Creation")
+            await dialog.locator("input[type='email']").fill("smoke@test.dev")
+            dlg_pwds = dialog.locator("input[type='password']")
+            await dlg_pwds.nth(0).fill("Password123")
+            await dlg_pwds.nth(1).fill("Password123")
             await page.get_by_role("button", name="Continue Building My Profile").click()
             await expect_visible(page, "text=NON-DISCLOSURE AGREEMENT", "NDA modal heading")
             await expect_visible(
@@ -85,6 +86,7 @@ async def run():
             )
             await page.screenshot(path=str(OUT / "nda.png"))
         except Exception as e:
+            await page.screenshot(path=str(OUT / "nda-fail.png"))
             failures.append(f"nda: {e}")
 
         await browser.close()

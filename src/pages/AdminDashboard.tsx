@@ -621,6 +621,7 @@ const AdminDashboard = () => {
             </section>
           </div>
         </div>
+        )}
       </main>
       <Footer />
     </div>

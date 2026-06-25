@@ -52,6 +52,7 @@ interface PageCacheEntry {
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [tab, setTab] = useState<'applicants' | 'settings'>('applicants');
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [applicants, setApplicants] = useState<MockApplicant[]>(MOCK_APPLICANTS);

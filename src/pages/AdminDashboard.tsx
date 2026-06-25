@@ -340,10 +340,40 @@ const AdminDashboard = () => {
         <div className="mb-6">
           <h1 className="font-heading text-2xl font-bold text-foreground">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Search applicants, manage their resume content, and generate downloadable resumes.
+            {tab === 'applicants'
+              ? 'Search applicants, manage their resume content, and generate downloadable resumes.'
+              : 'Configure role-fit formulas and the assessment link.'}
           </p>
         </div>
 
+        <div className="mb-5 inline-flex rounded-xl border border-border bg-card p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setTab('applicants')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${
+              tab === 'applicants'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Users className="w-4 h-4" /> Applicants
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('settings')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${
+              tab === 'settings'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <SettingsIcon className="w-4 h-4" /> Settings
+          </button>
+        </div>
+
+        {tab === 'settings' ? (
+          <SettingsPanel />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
           {/* Applicants list */}
           <div className="bg-card rounded-2xl border border-border shadow-sm p-4 h-fit">

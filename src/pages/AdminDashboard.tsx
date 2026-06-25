@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@/lib/router-compat';
-import { LogOut, Search, Download, FileText, User, Upload, Star, RefreshCw, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LogOut, Search, Download, FileText, User, Upload, Star, RefreshCw, BarChart3, ChevronLeft, ChevronRight, Users, Settings as SettingsIcon } from 'lucide-react';
+import SettingsPanel from '@/components/admin/SettingsPanel';
 import jsPDF from 'jspdf';
 import Logo from '@/components/Logo';
 import page1Bg from '@/assets/resume-page1-bg.png';

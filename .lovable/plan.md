@@ -1,61 +1,83 @@
-## Goal
+## Part 1 — `/source/:name` mirrors `/head-hunting`
 
-Replace the current TanStack Start setup with a standard Vite + React + React Router project that mirrors the original `Application-Site-V3-FE.rar` structure, while upgrading packages to current latest stable versions. All existing pages/components/wizard logic (NDA modal, ComplianceStep, ProfessionalBgStep with industry-role matrix, source/:name route, etc.) continue to work identically.
+### `src/pages/Source.tsx`
+Mirror `HeadHunting.tsx`: on mount, in addition to `setSourcing(true)` + `setSourceName(name)`, also call `setHeadhunting(true)`. On unmount, clear all three. This activates every existing `isHeadhunting()`-gated UI branch (currently the Referral Link field on `PersonalInfoStep`, and any future ones) for sourcing sessions without duplicating logic.
 
-## Scope
+### `src/lib/apiClient.ts` (payload injection, lines ~38–49)
+- Keep `headhunting: true` for the head-hunting branch.
+- For sourcing, rename injected keys from `sourcing` → `source`:
+  ```
+  source: true
+  source_name: "<name from URL>"
+  ```
+- A `/source/:name` request will therefore carry `headhunting: true`, `source: true`, `source_name: "<name>"` together.
 
-### Remove TanStack Start scaffolding
+No other files change — `isHeadhunting()` is the only flag consumed by step components.
 
-- Delete: `src/router.tsx`, `src/start.ts`, `src/routes/` (entire dir incl. `__root.tsx`, `routeTree.gen.ts`, per-route files), `.tanstack/`, any `*.functions.ts` server-fn modules, `src/integrations/supabase/auth-middleware.ts` / `auth-attacher.ts` / `client.server.ts` if present.
-- Strip TanStack Start / Router / Start-Vite plugins from `package.json` and `vite.config.ts`.
+### Verification (Part 1)
+- `/source/test-name?ref=abc` shows the Referral Link field, prefilled with `abc`.
+- Network payload contains `source: true`, `source_name: "test-name"`, `headhunting: true`.
+- `/head-hunting` regression: only `headhunting: true`.
+- `/` regression: none of the three keys.
 
-### Restore standard Vite shell (matches RAR)
+---
 
-- `index.html` at project root with `<div id="root">` and `<script type="module" src="/src/main.tsx">`.
-- `src/main.tsx` → `createRoot(...).render(<ErrorBoundary><App /></ErrorBoundary>)` with global error listeners (verbatim from RAR).
-- `src/App.tsx` → `QueryClientProvider` + `TooltipProvider` + `Toaster`/`Sonner` + `BrowserRouter` with the exact route table from the RAR:
-  - `/`, `/dashboard`, `/attendance` (Dashboard variant), `/admin`, `/assessment-result`, `/head-hunting`, `/davao-hub`, `/source/:name`, `/compliance-docs-u`, `*` → NotFound.
-- `src/pages/` directory with the page files (rename/move current route components into pages preserving their current content — keeping the recent NDA/Compliance/ProfessionalBg fixes intact).
-- Replace any `@tanstack/react-router` usage in components (`Link`, `useNavigate`, `useParams`, `createFileRoute`) with `react-router-dom` equivalents.
+## Part 2 — Admin Dashboard "Settings" tab
 
-### vite.config.ts
+A new tab on `AdminDashboard` that opens a Settings view for editing the role-fit formulas described in the attached Values Assessment doc, plus an Assessment URL field with a usage counter.
 
-Plain config matching RAR: `@vitejs/plugin-react-swc`, `lovable-tagger` in dev, `@` alias, port 8080, `dedupe` for react/query.
+### Value dimensions (from the doc)
+Seven traits, each scored 0–100 (percentile):
+`Aesthetic, Altruistic, Individualistic, Theoretical, Economic, Political, Regulatory`.
 
-### Tailwind
+### Role formula model
+Each role has, per trait, an **ideal percentile range** (min–max, 0–100) and a **weight** (0–3, mapping to the doc's `→ moderate / ↑ / ↑↑ / ↑↑↑` and inverse for `↓`). Fit score per trait = how well the applicant's percentile falls inside the range, multiplied by weight; role fit % = weighted average across traits. This replaces the current arrow-based authoring with explicit numeric ranges.
 
-use tha latest tailwind and adjust the the code accordingly so that it will not break
+Seeded roles (from the doc): Web Developer, Bookkeeper, Video Editor, Software Backer, DevOps Backend Engineer. Admin can add/rename/delete roles.
 
-### Package updates (latest stable as of 2026-06)
+### UI: Settings page
+New left-nav tab on `AdminDashboard` labelled **Settings** (icon: `Settings` from lucide). Selecting it swaps the right pane to a settings view with two sections.
 
-- React 19.x + react-dom 19.x, @types/react 19.x
-- Vite 7.x, @vitejs/plugin-react-swc latest
-- TypeScript 5.9+
-- react-router-dom 7.x
-- @tanstack/react-query 5.x latest
-- All @radix-ui/* to current latest
-- lucide-react, zod 3.x latest, react-hook-form, date-fns 4.x, recharts 2.x, sonner, cmdk, vaul, embla, dnd-kit, jspdf, html2canvas, input-otp — all latest
-- tailwindcss 3.4.x (stay on v3 to match RAR), @tailwindcss/typography, tailwindcss-animate, autoprefixer, postcss — latest 3.x-compatible
-- eslint 9.x + typescript-eslint 8.x + react-hooks/react-refresh plugins — latest
-- Dev: vitest 3.x, @testing-library/react latest, jsdom latest, lovable-tagger latest, @types/node 22.x
+**Section A — Role Fit Formulas**
+- Role list (sidebar inside settings) with "+ Add role" and per-row delete.
+- Selected role shows a table with one row per trait. Each row has:
+  - Trait name (read-only).
+  - Two number inputs: **Min** and **Max** (0–100, Min ≤ Max). Example shown in placeholder: "60–90 for Aesthetic". No spinners/arrows — use plain numeric inputs (`type="number"` with `appearance-none` to hide arrows, also accept manual typing).
+  - Weight selector: 0 (ignore), 1 (moderate), 2 (high), 3 (very high). Toggle "Inverse" for ↓ traits (low percentile is preferred — internally flips the range against 100).
+- "Save changes" button persists via `PUT /admin/role-formulas` (new endpoint, see Technical).
+- Inline validation: Min ≤ Max, both in 0–100; weight in 0–3.
 
-### Preservation checklist
+**Section B — Assessment Link**
+- Single text input **Assessment URL** with copy-to-clipboard button.
+- Read-only metric card **Total uses** showing a whole number returned by the backend.
+- "Save" button persists URL via `PUT /admin/assessment-link`.
+- Metric is fetched from `GET /admin/assessment-link` which returns `{ url, uses }`.
 
-- Keep all files under `src/components/`, `src/hooks/`, `src/lib/`, `src/data/` (incl. new `industryRoleMatrix.ts`), `src/types/`, `src/assets/` unchanged in behavior.
-- Keep recent edits: NDA modal text, split NBI/Police vs COE compliance, industry-filtered roles, source/:name route.
-- Keep shadcn UI primitives (button/input/select/textarea) with their cursor/focus/padding refinements; only adjust class-source if Tailwind utility names changed.
+### Technical
 
-### Verification
+New file `src/components/admin/SettingsPanel.tsx` — renders Sections A & B, owns local edit state, calls the API client.
 
-- `bun install` clean.
-- Dev server boots on :8080 and renders `/`, `/source/test?ref=abc`, `/admin`, `/dashboard`, `/compliance-docs-u` without console errors.
-- Playwright smoke: open `/`, advance one wizard step, open NDA modal, confirm content; navigate to `/source/test-campaign?ref=xyz` and confirm sourcing initializes.
+New file `src/data/valueDimensions.ts` — exports the 7 trait names and the doc-seeded defaults so the UI can hydrate before the first save.
 
-## Out of scope
+`src/pages/AdminDashboard.tsx` — add a `tab: 'applicants' | 'settings'` state, render the existing applicants pane when `applicants`, the new `<SettingsPanel />` when `settings`. Add a `Settings` button to the existing left rail.
 
-- No feature changes. No design changes beyond porting current tokens.
-- Lovable Cloud / Supabase backend wiring is not added (RAR has none).
+`src/lib/apiClient.ts` — add four functions wired through the existing `request<T>()` helper:
+- `getRoleFormulas(): Promise<RoleFormula[]>` → `GET /admin/role-formulas`
+- `saveRoleFormulas(payload): Promise<void>` → `PUT /admin/role-formulas`
+- `getAssessmentLink(): Promise<{ url: string; uses: number }>` → `GET /admin/assessment-link`
+- `saveAssessmentLink(url): Promise<void>` → `PUT /admin/assessment-link`
 
-## Risk note
+`src/types/admin.ts` (new) — `RoleFormula = { id, name, traits: Record<TraitName, { min: number; max: number; weight: 0|1|2|3; inverse: boolean }> }`.
 
-The Lovable platform's default template is TanStack Start. Moving to plain Vite + React Router is fully supported at runtime but means features keyed off TanStack Start (server functions, file-based routing, SSR) are no longer available — matching the original RAR, which is a pure SPA.
+Number inputs styled with the existing `form-input` class plus a small CSS rule to hide native spinner arrows (per the "instead of arrows" requirement).
+
+### Out of scope
+- No changes to the assessment computation pipeline itself — this only edits the **formulas** that downstream consumers will read. The backend owns recomputing fit scores from the saved formulas.
+- No auth changes; the new endpoints assume the same admin context as today's dashboard calls.
+- No design system changes beyond reusing existing tokens / Tailwind classes.
+
+### Verification (Part 2)
+- Open `/admin`, click **Settings**: panel renders with the 5 seeded roles and 7 trait rows each.
+- Edit Aesthetic on "Web Developer" to Min 60 / Max 90, weight 2 → Save → reload → values persist (mocked locally if backend unavailable, real persistence once endpoints exist).
+- Assessment URL section shows the saved URL and the `uses` counter as a whole number; editing + saving round-trips.
+- Existing applicants tab and all flows unchanged.

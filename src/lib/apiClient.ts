@@ -42,7 +42,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
       if (isHeadhunting()) extra.headhunting = true;
       if (isDavaohub()) extra.davaohub = true;
       if (isSourcing()) {
-        extra.sourcing = true;
+        extra.source = true;
         extra.source_name = getSourceName();
       }
       body = JSON.stringify({ ...parsed, ...extra });

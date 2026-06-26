@@ -26,36 +26,7 @@ const PROFICIENCY_STARS: Record<ProficiencyLevel, number> = {
   Expert: 5,
 };
 
-const SUGGESTED_TOOLS = [
-  'Adobe Illustrator',
-  'Adobe Photoshop',
-  'Asana',
-  'Buffer',
-  'Calendly',
-  'Canva',
-  'ClickUp',
-  'Dropbox',
-  'Figma',
-  'Google Meet',
-  'Google Workspace',
-  'Hootsuite',
-  'HubSpot',
-  'Loom',
-  'Mailchimp',
-  'Meta Business Suite',
-  'Microsoft Office',
-  'Microsoft Teams',
-  'Monday.com',
-  'Notion',
-  'Pipedrive',
-  'QuickBooks',
-  'Salesforce',
-  'Slack',
-  'Trello',
-  'Xero',
-  'Zoho CRM',
-  'Zoom',
-];
+const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
 
 const ToolsStep = ({ data, onChange }: ToolsStepProps) => {
   const [newTool, setNewTool] = useState('');

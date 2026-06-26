@@ -27,10 +27,21 @@ const PROFICIENCY_STARS: Record<ProficiencyLevel, number> = {
 };
 
 const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
-
-const ToolsStep = ({ data, onChange }: ToolsStepProps) => {
   const [newTool, setNewTool] = useState('');
   const [newProficiency, setNewProficiency] = useState<ProficiencyLevel>('Intermediate');
+
+  const rolesArr = useMemo(() => {
+    if (!selectedRoles) return [];
+    const list = Array.isArray(selectedRoles)
+      ? selectedRoles
+      : selectedRoles.split(',');
+    return list.map((s) => s.trim()).filter(Boolean);
+  }, [selectedRoles]);
+
+  const suggestedTools = useMemo(
+    () => getSuggestedToolsForRoles(rolesArr),
+    [rolesArr],
+  );
 
   const addTool = (toolName?: string) => {
     const name = (toolName ?? newTool).trim();

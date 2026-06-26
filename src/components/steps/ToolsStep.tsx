@@ -39,9 +39,10 @@ const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
   }, [selectedRoles]);
 
   const suggestedTools = useMemo(
-    () => getSuggestedToolsForRoles(rolesArr),
+    () => (rolesArr.length === 0 ? GENERIC_VA_TOOLS : getSuggestedToolsForRoles(rolesArr)),
     [rolesArr],
   );
+  const isGeneric = rolesArr.length === 0;
 
   const addTool = (toolName?: string) => {
     const name = (toolName ?? newTool).trim();

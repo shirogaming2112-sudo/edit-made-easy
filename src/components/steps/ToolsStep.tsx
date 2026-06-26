@@ -1,7 +1,7 @@
 import { SelectedTool, ProficiencyLevel } from '@/types/application';
 import { Plus, Trash2, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { getSuggestedToolsForRoles } from '@/data/roleToolsMatrix';
+import { getSuggestedToolsForRoles, GENERIC_VA_TOOLS } from '@/data/roleToolsMatrix';
 
 interface ToolsStepProps {
   data: SelectedTool[];
@@ -39,9 +39,10 @@ const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
   }, [selectedRoles]);
 
   const suggestedTools = useMemo(
-    () => getSuggestedToolsForRoles(rolesArr),
+    () => (rolesArr.length === 0 ? GENERIC_VA_TOOLS : getSuggestedToolsForRoles(rolesArr)),
     [rolesArr],
   );
+  const isGeneric = rolesArr.length === 0;
 
   const addTool = (toolName?: string) => {
     const name = (toolName ?? newTool).trim();
@@ -122,15 +123,13 @@ const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
         {/* Suggested — driven by selected roles on the Professional Background step */}
         <div className="mt-4">
           <p className="text-xs font-medium text-muted-foreground mb-2">
-            Suggested tools{rolesArr.length > 0 ? ` for ${rolesArr.join(', ')}` : ''}
+            {isGeneric
+              ? 'Suggested tools (commonly used by Virtual Assistants)'
+              : `Suggested tools for ${rolesArr.join(', ')}`}
           </p>
-          {rolesArr.length === 0 ? (
+          {suggestedTools.filter((t) => !isAdded(t)).length === 0 ? (
             <p className="text-xs text-muted-foreground italic">
-              Select your preferred roles on the Professional Background step to see suggested tools for those roles.
-            </p>
-          ) : suggestedTools.filter((t) => !isAdded(t)).length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">
-              All suggested tools for your selected roles have been added.
+              All suggested tools have been added.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">

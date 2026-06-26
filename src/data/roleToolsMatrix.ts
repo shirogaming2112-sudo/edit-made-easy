@@ -130,3 +130,17 @@ export function getSuggestedToolsForRoles(roles: string[]): string[] {
   }
   return out;
 }
+
+/** Generic tools commonly used by Virtual Assistants, shown when no role is selected. */
+export const GENERIC_VA_TOOLS: string[] = [
+  'Google Workspace', 'Microsoft 365', 'Gmail', 'Microsoft Outlook', 'Google Calendar',
+  'Zoom', 'Google Meet', 'Microsoft Teams', 'Slack', 'Loom',
+  'Asana', 'Trello', 'ClickUp', 'Notion', 'Monday.com',
+  'Google Drive', 'Dropbox', 'OneDrive',
+  'Calendly', 'DocuSign', 'LastPass',
+  'Canva', 'Adobe Express',
+  'HubSpot CRM', 'Salesforce',
+  'QuickBooks Online', 'Microsoft Excel', 'Google Sheets',
+  'ChatGPT',
+];
+

@@ -237,15 +237,12 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
       {activeTab === 'general' && (
         <div className="space-y-6 animate-fade-in">
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
-            <p>
-              Please provide accurate details about your work setup. Clients want to ensure that you have a stable and professional environment to support their business.
-            </p>
             <div>
               <p className="font-semibold text-foreground">Required Equipment:</p>
               <ul className="list-disc pl-5 mt-1 space-y-0.5">
                 <li>Computer (Laptop/Desktop)</li>
-                <li>Noise-cancelling headset (Yes/No)</li>
-                <li>HD webcam (Yes/No)</li>
+                <li>Noise-cancelling headset</li>
+                <li>HD webcam</li>
               </ul>
             </div>
             <div>
@@ -333,6 +330,7 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
                   <li>No personal files, passwords, browsing activity, or unrelated personal data will be accessed, viewed, or stored.</li>
                   <li>The collected information will be handled in accordance with the provisions of the Data Privacy Act of 2012 and Cyberbacker’s data privacy and security policies.</li>
                   <li>Your information will be used solely for candidate assessment, profile building, and client matching purposes.</li>
+                  <li>By clicking ‘Detect Now’, you voluntarily consent to the collection and processing of your device specifications.</li>
                 </ul>
                 <p>
                   If you prefer not to use the automatic detection feature, you may manually
@@ -413,13 +411,13 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
               <ul className="list-disc pl-5 mt-1 space-y-0.5">
                 <li>Primary Device Specifications screenshot (<span className="text-destructive font-semibold">*</span>)</li>
                 <li>Primary ISP Speedtest shareable link (<span className="text-destructive font-semibold">*</span>)</li>
-                <li>Secondary/Back up Device Specifications screenshot (With/Without)</li>
-                <li>Secondary/Back up ISP Speedtest shareable link (With/Without)</li>
+                <li>Secondary/Back up Device Specifications screenshot</li>
+                <li>Secondary/Back up ISP Speedtest shareable link</li>
               </ul>
             </div>
             <div>
               <p className="font-semibold text-foreground">How to Get Your Speed Test Shareable Link</p>
-              <p>To verify your internet stability, please complete a speed test and upload your results.</p>
+              <p>To verify your internet stability, please complete a speed test and upload your result.</p>
               <p className="font-semibold text-foreground mt-2">Steps:</p>
               <ol className="list-decimal pl-5 mt-1 space-y-0.5">
                 <li>Go to <a href="https://www.speedtest.net" target="_blank" rel="noreferrer" className="text-primary hover:underline">https://www.speedtest.net</a></li>

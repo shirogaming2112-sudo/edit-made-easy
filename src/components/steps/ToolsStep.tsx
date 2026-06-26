@@ -71,7 +71,7 @@ const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
         </h3>
         <p className="text-sm text-muted-foreground">
           Add the tools and platforms you've used (CRM, project management, design, etc.) and rate
-          your proficiency for each — same scale as Skills.
+          your proficiency for each.
         </p>
       </div>
 

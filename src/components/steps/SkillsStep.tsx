@@ -249,7 +249,7 @@ const SkillsStep = ({ data, onChange }: SkillsStepProps) => {
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold text-foreground text-left">{category.name}</span>
                   {count > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                    <span className="inline-flex items-center justify-center min-w-5.5 h-5.5 px-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                       {count}
                     </span>
                   )}

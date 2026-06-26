@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 207 100% 26%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 220 20% 10%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 207 100% 26%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 0 0% 100%;
+    --ring: 207 100% 26%;
+
+    --radius: 0.75rem;
+
+    --sidebar-bg: 207 100% 26%;
+    --sidebar-bg-dark: 215 90% 14%;
+    --sidebar-text: 0 0% 100%;
+    --sidebar-step-active: 0 0% 100%;
+    --sidebar-step-inactive: 207 60% 75%;
+    --sidebar-line: 207 50% 60%;
+
+    --step-complete: 142 70% 45%;
+
+    --hero-gradient-start: 207 100% 26%;
+    --hero-gradient-end: 207 90% 38%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply text-foreground font-sans antialiased;
+    background-color: #BDCEEA;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Poppins', sans-serif;
+  }
+}
+
+@layer components {
+  .wizard-sidebar {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--sidebar-bg)) 0%,
+      hsl(var(--sidebar-bg-dark)) 100%
+    );
+  }
+
+  .hero-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--hero-gradient-start)) 0%,
+      hsl(var(--hero-gradient-end)) 50%,
+      hsl(0 0% 100%) 50%
+    );
+  }
+
+  .step-line {
+    background: hsl(var(--sidebar-line));
+  }
+
+  .step-circle {
+    @apply w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300;
+  }
+
+  .step-circle-active {
+    @apply bg-white text-primary shadow-lg;
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3);
+  }
+
+  .step-circle-complete {
+    background: hsl(var(--step-complete));
+    @apply text-white;
+  }
+
+  .step-circle-inactive {
+    @apply bg-white/20 text-white/70;
+  }
+
+  .form-input {
+    @apply w-full rounded-lg border border-border bg-background px-4 py-3 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder:text-muted-foreground;
+  }
+
+  .form-select {
+    @apply form-input appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+    padding-right: 2.5rem;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-foreground mb-1.5;
+  }
+
+  .file-dropzone {
+    @apply border-2 border-dashed border-border rounded-xl p-8 text-center transition-all duration-200 cursor-pointer;
+  }
+
+  .file-dropzone:hover {
+    @apply border-primary bg-primary/5;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold transition-all duration-200 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-lg border border-border bg-background text-foreground px-6 py-3 text-sm font-semibold transition-all duration-200 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+
+  .skill-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-all duration-200 cursor-pointer select-none;
+  }
+
+  .skill-chip-active {
+    @apply bg-primary text-primary-foreground border-primary;
+  }
+
+  .skill-chip-inactive {
+    @apply bg-background text-foreground hover:bg-muted;
+  }
+
+  .tab-button {
+    @apply px-4 py-2.5 text-sm font-medium transition-all duration-200 border-b-2 border-transparent;
+  }
+
+  .tab-button-active {
+    @apply text-primary border-primary;
+  }
+
+  .tab-button-inactive {
+    @apply text-muted-foreground hover:text-foreground;
+  }
+}

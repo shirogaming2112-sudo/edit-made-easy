@@ -157,10 +157,6 @@ const NdaModal = ({ open, onOpenChange, onAgree }: NdaModalProps) => {
           <p className="italic">
             I, the Applicant, acknowledge that I have read this Non-Disclosure Agreement in its entirety and hereby undertake to comply with its terms and conditions. I understand that I am required to abide by the provisions of this agreement in order to move forward with the Values Assessment and other phases of this application process. Failure to agree will render my application to Cyberbacker Inc. void and forfeited.
           </p>
-
-          <p className="font-semibold pt-2">
-            I have read and agree to the terms of the Non-Disclosure Agreement
-          </p>
         </div>
 
         <div className="space-y-3">

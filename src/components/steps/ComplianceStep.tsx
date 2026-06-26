@@ -81,6 +81,8 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
         <p>By completing your documentation within your profile, you demonstrate professionalism, readiness, and commitment to becoming part of the Cyberbacker community.</p>
         <p>This step ensures your profile is fully verified and client-ready from the start — helping you move faster from creation to potential placement.</p>
         <p>Upload clear and valid (not expired) documents.</p>
+        <p>Please ensure that the document submitted is clear, authentic, valid, and verifiable through the official <a href="https://verification.nbi-clearance.io/" target="_blank" rel="noreferrer" className="text-primary hover:underline">NBI Clearance</a> verification portal prior to uploading.</p>
+        <p>Please ensure that the document submitted is clear, authentic, valid, and verifiable through the official <a href="https://pnpclearance.ph/" target="_blank" rel="noreferrer" className="text-primary hover:underline">Police Clearance</a> verification portal prior to uploading.</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li>
             <a href="https://cyberbackercareers.com/accepted-ids/" target="_blank" rel="noreferrer" className="text-primary hover:underline">Valid ID</a>

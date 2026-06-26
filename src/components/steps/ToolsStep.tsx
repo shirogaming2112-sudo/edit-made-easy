@@ -123,15 +123,13 @@ const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
         {/* Suggested — driven by selected roles on the Professional Background step */}
         <div className="mt-4">
           <p className="text-xs font-medium text-muted-foreground mb-2">
-            Suggested tools{rolesArr.length > 0 ? ` for ${rolesArr.join(', ')}` : ''}
+            {isGeneric
+              ? 'Suggested tools (commonly used by Virtual Assistants)'
+              : `Suggested tools for ${rolesArr.join(', ')}`}
           </p>
-          {rolesArr.length === 0 ? (
+          {suggestedTools.filter((t) => !isAdded(t)).length === 0 ? (
             <p className="text-xs text-muted-foreground italic">
-              Select your preferred roles on the Professional Background step to see suggested tools for those roles.
-            </p>
-          ) : suggestedTools.filter((t) => !isAdded(t)).length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">
-              All suggested tools for your selected roles have been added.
+              All suggested tools have been added.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">

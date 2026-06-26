@@ -1,7 +1,7 @@
 import { SelectedTool, ProficiencyLevel } from '@/types/application';
 import { Plus, Trash2, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { getSuggestedToolsForRoles } from '@/data/roleToolsMatrix';
+import { getSuggestedToolsForRoles, GENERIC_VA_TOOLS } from '@/data/roleToolsMatrix';
 
 interface ToolsStepProps {
   data: SelectedTool[];

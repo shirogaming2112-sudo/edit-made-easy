@@ -42,7 +42,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
       if (isHeadhunting()) extra.headhunting = true;
       if (isDavaohub()) extra.davaohub = true;
       if (isSourcing()) {
-        extra.sourcing = true;
+        extra.source = true;
         extra.source_name = getSourceName();
       }
       body = JSON.stringify({ ...parsed, ...extra });
@@ -630,4 +630,30 @@ export async function submitSubstep(
     case 10: await updateWorkSetup(contactId, data.workSetup); return;
     case 11: await updateCompliance(contactId, data.compliance); return;
   }
+}
+
+// ------------------------ ADMIN: ROLE FORMULAS & ASSESSMENT LINK ------------------------
+
+import type { RoleFormula } from '@/data/valueDimensions';
+
+export async function getRoleFormulas(): Promise<RoleFormula[]> {
+  return request<RoleFormula[]>('/admin/role-formulas', { method: 'GET' });
+}
+
+export async function saveRoleFormulas(formulas: RoleFormula[]): Promise<void> {
+  await request<{ ok: true }>('/admin/role-formulas', {
+    method: 'PUT',
+    body: JSON.stringify({ formulas }),
+  });
+}
+
+export async function getAssessmentLink(): Promise<{ url: string; uses: number }> {
+  return request<{ url: string; uses: number }>('/admin/assessment-link', { method: 'GET' });
+}
+
+export async function saveAssessmentLink(url: string): Promise<void> {
+  await request<{ ok: true }>('/admin/assessment-link', {
+    method: 'PUT',
+    body: JSON.stringify({ url }),
+  });
 }

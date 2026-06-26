@@ -1,10 +1,14 @@
 import { SelectedTool, ProficiencyLevel } from '@/types/application';
 import { Plus, Trash2, Star } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { getSuggestedToolsForRoles, GENERIC_VA_TOOLS } from '@/data/roleToolsMatrix';
 
 interface ToolsStepProps {
   data: SelectedTool[];
   onChange: (data: SelectedTool[]) => void;
+  /** Comma-separated or array of role names currently selected on the
+   *  Professional Background step. Drives the Suggested tools chips. */
+  selectedRoles?: string[] | string;
 }
 
 const PROFICIENCY_LEVELS: ProficiencyLevel[] = [
@@ -22,40 +26,23 @@ const PROFICIENCY_STARS: Record<ProficiencyLevel, number> = {
   Expert: 5,
 };
 
-const SUGGESTED_TOOLS = [
-  'Adobe Illustrator',
-  'Adobe Photoshop',
-  'Asana',
-  'Buffer',
-  'Calendly',
-  'Canva',
-  'ClickUp',
-  'Dropbox',
-  'Figma',
-  'Google Meet',
-  'Google Workspace',
-  'Hootsuite',
-  'HubSpot',
-  'Loom',
-  'Mailchimp',
-  'Meta Business Suite',
-  'Microsoft Office',
-  'Microsoft Teams',
-  'Monday.com',
-  'Notion',
-  'Pipedrive',
-  'QuickBooks',
-  'Salesforce',
-  'Slack',
-  'Trello',
-  'Xero',
-  'Zoho CRM',
-  'Zoom',
-];
-
-const ToolsStep = ({ data, onChange }: ToolsStepProps) => {
+const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
   const [newTool, setNewTool] = useState('');
   const [newProficiency, setNewProficiency] = useState<ProficiencyLevel>('Intermediate');
+
+  const rolesArr = useMemo(() => {
+    if (!selectedRoles) return [];
+    const list = Array.isArray(selectedRoles)
+      ? selectedRoles
+      : selectedRoles.split(',');
+    return list.map((s) => s.trim()).filter(Boolean);
+  }, [selectedRoles]);
+
+  const suggestedTools = useMemo(
+    () => (rolesArr.length === 0 ? GENERIC_VA_TOOLS : getSuggestedToolsForRoles(rolesArr)),
+    [rolesArr],
+  );
+  const isGeneric = rolesArr.length === 0;
 
   const addTool = (toolName?: string) => {
     const name = (toolName ?? newTool).trim();
@@ -133,23 +120,34 @@ const ToolsStep = ({ data, onChange }: ToolsStepProps) => {
           </button>
         </div>
 
-        {/* Suggested */}
+        {/* Suggested — driven by selected roles on the Professional Background step */}
         <div className="mt-4">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Suggested tools</p>
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTED_TOOLS.filter((t) => !isAdded(t)).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => addTool(t)}
-                className="skill-chip skill-chip-inactive"
-              >
-                + {t}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">
+            {isGeneric
+              ? 'Suggested tools (commonly used by Virtual Assistants)'
+              : `Suggested tools for ${rolesArr.join(', ')}`}
+          </p>
+          {suggestedTools.filter((t) => !isAdded(t)).length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">
+              All suggested tools have been added.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {suggestedTools.filter((t) => !isAdded(t)).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => addTool(t)}
+                  className="skill-chip skill-chip-inactive"
+                >
+                  + {t}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
 
       {/* Selected tools list */}
       <div>

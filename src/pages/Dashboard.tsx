@@ -629,7 +629,11 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
 
             {activeSection === 'tools' && (
               editing ? (
-                <ToolsStep data={draftTools} onChange={setDraftTools} />
+                <ToolsStep
+                  data={draftTools}
+                  onChange={setDraftTools}
+                  selectedRoles={professional.preferredRole}
+                />
               ) : (
                 <ToolsView data={tools} />
               )

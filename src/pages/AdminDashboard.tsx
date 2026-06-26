@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@/lib/router-compat';
-import { LogOut, Search, Download, FileText, User, Upload, Star, RefreshCw, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LogOut, Search, Download, FileText, User, Upload, Star, RefreshCw, BarChart3, ChevronLeft, ChevronRight, Users, Settings as SettingsIcon } from 'lucide-react';
+import SettingsPanel from '@/components/admin/SettingsPanel';
 import jsPDF from 'jspdf';
 import Logo from '@/components/Logo';
 import page1Bg from '@/assets/resume-page1-bg.png';
@@ -51,6 +52,7 @@ interface PageCacheEntry {
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [tab, setTab] = useState<'applicants' | 'settings'>('applicants');
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [applicants, setApplicants] = useState<MockApplicant[]>(MOCK_APPLICANTS);
@@ -338,10 +340,40 @@ const AdminDashboard = () => {
         <div className="mb-6">
           <h1 className="font-heading text-2xl font-bold text-foreground">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Search applicants, manage their resume content, and generate downloadable resumes.
+            {tab === 'applicants'
+              ? 'Search applicants, manage their resume content, and generate downloadable resumes.'
+              : 'Configure role-fit formulas and the assessment link.'}
           </p>
         </div>
 
+        <div className="mb-5 inline-flex rounded-xl border border-border bg-card p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setTab('applicants')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${
+              tab === 'applicants'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Users className="w-4 h-4" /> Applicants
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('settings')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${
+              tab === 'settings'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <SettingsIcon className="w-4 h-4" /> Settings
+          </button>
+        </div>
+
+        {tab === 'settings' ? (
+          <SettingsPanel />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
           {/* Applicants list */}
           <div className="bg-card rounded-2xl border border-border shadow-sm p-4 h-fit">
@@ -589,6 +621,7 @@ const AdminDashboard = () => {
             </section>
           </div>
         </div>
+        )}
       </main>
       <Footer />
     </div>

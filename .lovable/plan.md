@@ -1,83 +1,56 @@
-## Part 1 — `/source/:name` mirrors `/head-hunting`
+# Role-Aware Suggested Tools
 
-### `src/pages/Source.tsx`
-Mirror `HeadHunting.tsx`: on mount, in addition to `setSourcing(true)` + `setSourceName(name)`, also call `setHeadhunting(true)`. On unmount, clear all three. This activates every existing `isHeadhunting()`-gated UI branch (currently the Referral Link field on `PersonalInfoStep`, and any future ones) for sourcing sessions without duplicating logic.
+## Goal
+In the Tools & Platforms step, replace the static suggested-tools list with a list driven by the up-to-3 roles selected on the Professional Background step, sourced from the uploaded `Role_Tools_Matrix.xlsx` (plus a few common additions).
 
-### `src/lib/apiClient.ts` (payload injection, lines ~38–49)
-- Keep `headhunting: true` for the head-hunting branch.
-- For sourcing, rename injected keys from `sourcing` → `source`:
-  ```
-  source: true
-  source_name: "<name from URL>"
-  ```
-- A `/source/:name` request will therefore carry `headhunting: true`, `source: true`, `source_name: "<name>"` together.
+## Changes
 
-No other files change — `isHeadhunting()` is the only flag consumed by step components.
+### 1. New data file `src/data/roleToolsMatrix.ts`
+Export `ROLE_TOOLS: Record<RoleName, string[]>` seeded from the uploaded matrix. Each role gets its 15 tools from the sheet, plus 2–4 commonly-used additions where appropriate. Examples:
 
-### Verification (Part 1)
-- `/source/test-name?ref=abc` shows the Referral Link field, prefilled with `abc`.
-- Network payload contains `source: true`, `source_name: "test-name"`, `headhunting: true`.
-- `/head-hunting` regression: only `headhunting: true`.
-- `/` regression: none of the three keys.
+- Growthbacker: + ChatGPT, Gmail
+- Cyberbacker: + ChatGPT, Canva, Asana
+- Marketing Backer: + ChatGPT, Notion, Figma
+- Appointment Setter: + Gmail, ChatGPT
+- Cyber Recruiter: + Notion, Slack, ChatGPT
+- Listing Backer: + Zillow Premier Agent, Notion
+- Property Management Backer: + Notion, Zoom
+- Web Developer: + VS Code extensions (Copilot), Vercel, Supabase, ChatGPT
+- Social Media Backer: + Notion, Trello
+- Transaction Backer: + DocuSign Rooms, Microsoft Teams
+- Productivity Backer: + ChatGPT, Calendly
+- Lead Backer: + Notion, ChatGPT, Calendly
+- Bookkeeper (mapped from "Bookkeeper Backer"): + Hubdoc, Microsoft Teams
+- Video Editor: + ChatGPT, Notion
+- Concierge Backer: + ChatGPT, Asana
+- Software Backer: + ChatGPT, npm
+- DevOps Backend Engineer: + GitHub, AWS CLI
+- AI Service Delivery Specialist: + ChatGPT, Hugging Face
+- Client Experience Apprentice: + ChatGPT, Asana
+- Facilitator Support – Cyberbacker University: + Padlet, ChatGPT
 
----
+Also export a helper:
+```ts
+export function getSuggestedToolsForRoles(roles: string[]): string[]
+```
+that returns the **deduplicated union** of tools for the given role names, preserving stable order: walk roles in selection order, then tools in matrix order, skipping duplicates (case-insensitive).
 
-## Part 2 — Admin Dashboard "Settings" tab
+### 2. `src/components/steps/ToolsStep.tsx`
+- Accept new prop `selectedRoles: string[]` (comma-split from `professionalBackground.preferredRole`).
+- Remove the hardcoded `SUGGESTED_TOOLS` constant; compute `suggestedTools = getSuggestedToolsForRoles(selectedRoles)`.
+- Render the "Suggested tools" section only when `selectedRoles.length > 0`. When empty, show a small muted note: "Select your preferred roles on the Professional Background step to see suggested tools."
+- Keep the existing "already added" filter and chip behavior unchanged.
 
-A new tab on `AdminDashboard` that opens a Settings view for editing the role-fit formulas described in the attached Values Assessment doc, plus an Assessment URL field with a usage counter.
+### 3. Wizard wiring (the page that renders `<ToolsStep />`, likely `src/pages/Index.tsx` / `HeadHunting.tsx` / `Source.tsx` via a shared wizard)
+Pass `selectedRoles={data.professionalBackground.preferredRole.split(',').map(s=>s.trim()).filter(Boolean)}` to `<ToolsStep />`. No other props change.
 
-### Value dimensions (from the doc)
-Seven traits, each scored 0–100 (percentile):
-`Aesthetic, Altruistic, Individualistic, Theoretical, Economic, Political, Regulatory`.
+## Notes / Out of scope
+- "Bookkeeper Backer" in the app maps to the matrix's "Bookkeeper" entry.
+- No changes to backend payload, validation, or other steps.
+- Manual tool entry remains available; the suggested list is just a faster shortcut.
 
-### Role formula model
-Each role has, per trait, an **ideal percentile range** (min–max, 0–100) and a **weight** (0–3, mapping to the doc's `→ moderate / ↑ / ↑↑ / ↑↑↑` and inverse for `↓`). Fit score per trait = how well the applicant's percentile falls inside the range, multiplied by weight; role fit % = weighted average across traits. This replaces the current arrow-based authoring with explicit numeric ranges.
-
-Seeded roles (from the doc): Web Developer, Bookkeeper, Video Editor, Software Backer, DevOps Backend Engineer. Admin can add/rename/delete roles.
-
-### UI: Settings page
-New left-nav tab on `AdminDashboard` labelled **Settings** (icon: `Settings` from lucide). Selecting it swaps the right pane to a settings view with two sections.
-
-**Section A — Role Fit Formulas**
-- Role list (sidebar inside settings) with "+ Add role" and per-row delete.
-- Selected role shows a table with one row per trait. Each row has:
-  - Trait name (read-only).
-  - Two number inputs: **Min** and **Max** (0–100, Min ≤ Max). Example shown in placeholder: "60–90 for Aesthetic". No spinners/arrows — use plain numeric inputs (`type="number"` with `appearance-none` to hide arrows, also accept manual typing).
-  - Weight selector: 0 (ignore), 1 (moderate), 2 (high), 3 (very high). Toggle "Inverse" for ↓ traits (low percentile is preferred — internally flips the range against 100).
-- "Save changes" button persists via `PUT /admin/role-formulas` (new endpoint, see Technical).
-- Inline validation: Min ≤ Max, both in 0–100; weight in 0–3.
-
-**Section B — Assessment Link**
-- Single text input **Assessment URL** with copy-to-clipboard button.
-- Read-only metric card **Total uses** showing a whole number returned by the backend.
-- "Save" button persists URL via `PUT /admin/assessment-link`.
-- Metric is fetched from `GET /admin/assessment-link` which returns `{ url, uses }`.
-
-### Technical
-
-New file `src/components/admin/SettingsPanel.tsx` — renders Sections A & B, owns local edit state, calls the API client.
-
-New file `src/data/valueDimensions.ts` — exports the 7 trait names and the doc-seeded defaults so the UI can hydrate before the first save.
-
-`src/pages/AdminDashboard.tsx` — add a `tab: 'applicants' | 'settings'` state, render the existing applicants pane when `applicants`, the new `<SettingsPanel />` when `settings`. Add a `Settings` button to the existing left rail.
-
-`src/lib/apiClient.ts` — add four functions wired through the existing `request<T>()` helper:
-- `getRoleFormulas(): Promise<RoleFormula[]>` → `GET /admin/role-formulas`
-- `saveRoleFormulas(payload): Promise<void>` → `PUT /admin/role-formulas`
-- `getAssessmentLink(): Promise<{ url: string; uses: number }>` → `GET /admin/assessment-link`
-- `saveAssessmentLink(url): Promise<void>` → `PUT /admin/assessment-link`
-
-`src/types/admin.ts` (new) — `RoleFormula = { id, name, traits: Record<TraitName, { min: number; max: number; weight: 0|1|2|3; inverse: boolean }> }`.
-
-Number inputs styled with the existing `form-input` class plus a small CSS rule to hide native spinner arrows (per the "instead of arrows" requirement).
-
-### Out of scope
-- No changes to the assessment computation pipeline itself — this only edits the **formulas** that downstream consumers will read. The backend owns recomputing fit scores from the saved formulas.
-- No auth changes; the new endpoints assume the same admin context as today's dashboard calls.
-- No design system changes beyond reusing existing tokens / Tailwind classes.
-
-### Verification (Part 2)
-- Open `/admin`, click **Settings**: panel renders with the 5 seeded roles and 7 trait rows each.
-- Edit Aesthetic on "Web Developer" to Min 60 / Max 90, weight 2 → Save → reload → values persist (mocked locally if backend unavailable, real persistence once endpoints exist).
-- Assessment URL section shows the saved URL and the `uses` counter as a whole number; editing + saving round-trips.
-- Existing applicants tab and all flows unchanged.
+## Verification
+1. On `/` (or `/head-hunting`), pick e.g. industry → roles `Web Developer`, `Marketing Backer`, `Bookkeeper Backer`. Advance to Tools & Platforms. Suggested chips show the union of those three role lists (VS Code, GitHub, …, Canva, Mailchimp, …, QuickBooks Online, Xero, …) with no duplicates.
+2. Deselect a role → return to Tools step → suggestions update accordingly.
+3. With zero roles selected, the suggestions block shows the helper note instead of chips.
+4. Adding a suggested chip still appends it to `selectedTools` with the chosen proficiency.

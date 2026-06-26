@@ -119,23 +119,36 @@ const ToolsStep = ({ data, onChange, selectedRoles }: ToolsStepProps) => {
           </button>
         </div>
 
-        {/* Suggested */}
+        {/* Suggested — driven by selected roles on the Professional Background step */}
         <div className="mt-4">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Suggested tools</p>
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTED_TOOLS.filter((t) => !isAdded(t)).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => addTool(t)}
-                className="skill-chip skill-chip-inactive"
-              >
-                + {t}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">
+            Suggested tools{rolesArr.length > 0 ? ` for ${rolesArr.join(', ')}` : ''}
+          </p>
+          {rolesArr.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">
+              Select your preferred roles on the Professional Background step to see suggested tools for those roles.
+            </p>
+          ) : suggestedTools.filter((t) => !isAdded(t)).length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">
+              All suggested tools for your selected roles have been added.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {suggestedTools.filter((t) => !isAdded(t)).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => addTool(t)}
+                  className="skill-chip skill-chip-inactive"
+                >
+                  + {t}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
 
       {/* Selected tools list */}
       <div>

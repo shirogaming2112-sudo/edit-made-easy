@@ -363,6 +363,7 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               <ToolsStep
                 data={values.selectedTools}
                 onChange={(d: SelectedTool[]) => setField('selectedTools', d)}
+                selectedRoles={values.professionalBackground.preferredRole}
               />
             )}
             {currentSubStep === 6 && (

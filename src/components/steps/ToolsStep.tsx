@@ -1,10 +1,14 @@
 import { SelectedTool, ProficiencyLevel } from '@/types/application';
 import { Plus, Trash2, Star } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { getSuggestedToolsForRoles } from '@/data/roleToolsMatrix';
 
 interface ToolsStepProps {
   data: SelectedTool[];
   onChange: (data: SelectedTool[]) => void;
+  /** Comma-separated or array of role names currently selected on the
+   *  Professional Background step. Drives the Suggested tools chips. */
+  selectedRoles?: string[] | string;
 }
 
 const PROFICIENCY_LEVELS: ProficiencyLevel[] = [

@@ -1,56 +1,34 @@
-# Role-Aware Suggested Tools
-
 ## Goal
-In the Tools & Platforms step, replace the static suggested-tools list with a list driven by the up-to-3 roles selected on the Professional Background step, sourced from the uploaded `Role_Tools_Matrix.xlsx` (plus a few common additions).
+Redesign `src/components/steps/CompletionStep.tsx` to match the uploaded reference, and add a "Got it, thanks!" button that returns the applicant to the home URL matching their entry route.
 
 ## Changes
 
-### 1. New data file `src/data/roleToolsMatrix.ts`
-Export `ROLE_TOOLS: Record<RoleName, string[]>` seeded from the uploaded matrix. Each role gets its 15 tools from the sheet, plus 2–4 commonly-used additions where appropriate. Examples:
+### 1. `src/components/steps/CompletionStep.tsx` (rewrite)
+- Header: blue curved/arched top band (rounded bottom corners) with centered Cyberbacker logo.
+- Animated green check badge (soft green circle, decorative dots scattered around).
+- Heading: "Thank you for building your profile with Cyberbacker!" (bold, primary blue, centered).
+- Subheading: "Your profile has been submitted successfully. Here's what happens next:"
+- Vertical timeline (dots + dashed connector on the left) with 4 cards, each card = soft icon tile + blue title + body copy:
+  1. **Review in Progress** (clipboard-search icon) — existing 24–48 business hours copy.
+  2. **Email Notification** (mail icon) — existing email outcome copy.
+  3. **Interview (If Qualified)** (user-check/star icon) — existing interview copy.
+  4. **Stay Updated** (bell icon) — existing inbox/spam copy.
+- Primary full-width "Got it, thanks!" button with paper-plane (Send) icon.
+- Footer line with heart icon: "We appreciate your trust in **Cyberbacker**."
+- Use `lucide-react` icons (`ClipboardCheck`/`ClipboardList`, `Mail`, `UserCheck`, `Bell`, `Send`, `Heart`) and semantic tokens only (`bg-primary`, `text-primary`, `bg-primary/10`, `text-foreground`, etc.) — no hardcoded hex/white/black.
 
-- Growthbacker: + ChatGPT, Gmail
-- Cyberbacker: + ChatGPT, Canva, Asana
-- Marketing Backer: + ChatGPT, Notion, Figma
-- Appointment Setter: + Gmail, ChatGPT
-- Cyber Recruiter: + Notion, Slack, ChatGPT
-- Listing Backer: + Zillow Premier Agent, Notion
-- Property Management Backer: + Notion, Zoom
-- Web Developer: + VS Code extensions (Copilot), Vercel, Supabase, ChatGPT
-- Social Media Backer: + Notion, Trello
-- Transaction Backer: + DocuSign Rooms, Microsoft Teams
-- Productivity Backer: + ChatGPT, Calendly
-- Lead Backer: + Notion, ChatGPT, Calendly
-- Bookkeeper (mapped from "Bookkeeper Backer"): + Hubdoc, Microsoft Teams
-- Video Editor: + ChatGPT, Notion
-- Concierge Backer: + ChatGPT, Asana
-- Software Backer: + ChatGPT, npm
-- DevOps Backend Engineer: + GitHub, AWS CLI
-- AI Service Delivery Specialist: + ChatGPT, Hugging Face
-- Client Experience Apprentice: + ChatGPT, Asana
-- Facilitator Support – Cyberbacker University: + Padlet, ChatGPT
+### 2. Route-aware "Got it" handler
+Determine origin route from the acquisition flags in `src/lib/headhunting.ts` (already imported elsewhere):
+- `isSourcing()` + `getSourceName()` → `/source/<name>`
+- `isHeadhunting()` (and not sourcing) → `/head-hunting`
+- `isDavaohub()` → `/davao-hub`
+- else → `/`
 
-Also export a helper:
-```ts
-export function getSuggestedToolsForRoles(roles: string[]): string[]
-```
-that returns the **deduplicated union** of tools for the given role names, preserving stable order: walk roles in selection order, then tools in matrix order, skipping duplicates (case-insensitive).
+Implementation: inside CompletionStep, compute `homeHref` once on mount (before flags get reset by route unmount). On click, do `window.location.assign(homeHref)` — full reload guarantees the target page's `useEffect` re-sets its acquisition flag cleanly and clears the just-submitted wizard state.
 
-### 2. `src/components/steps/ToolsStep.tsx`
-- Accept new prop `selectedRoles: string[]` (comma-split from `professionalBackground.preferredRole`).
-- Remove the hardcoded `SUGGESTED_TOOLS` constant; compute `suggestedTools = getSuggestedToolsForRoles(selectedRoles)`.
-- Render the "Suggested tools" section only when `selectedRoles.length > 0`. When empty, show a small muted note: "Select your preferred roles on the Professional Background step to see suggested tools."
-- Keep the existing "already added" filter and chip behavior unchanged.
+### 3. No other files touched
+Layout (`bg-muted` outer wrapper + `Footer`) and the existing `CompletionStep` mounting in `Index.tsx` stay intact.
 
-### 3. Wizard wiring (the page that renders `<ToolsStep />`, likely `src/pages/Index.tsx` / `HeadHunting.tsx` / `Source.tsx` via a shared wizard)
-Pass `selectedRoles={data.professionalBackground.preferredRole.split(',').map(s=>s.trim()).filter(Boolean)}` to `<ToolsStep />`. No other props change.
-
-## Notes / Out of scope
-- "Bookkeeper Backer" in the app maps to the matrix's "Bookkeeper" entry.
-- No changes to backend payload, validation, or other steps.
-- Manual tool entry remains available; the suggested list is just a faster shortcut.
-
-## Verification
-1. On `/` (or `/head-hunting`), pick e.g. industry → roles `Web Developer`, `Marketing Backer`, `Bookkeeper Backer`. Advance to Tools & Platforms. Suggested chips show the union of those three role lists (VS Code, GitHub, …, Canva, Mailchimp, …, QuickBooks Online, Xero, …) with no duplicates.
-2. Deselect a role → return to Tools step → suggestions update accordingly.
-3. With zero roles selected, the suggestions block shows the helper note instead of chips.
-4. Adding a suggested chip still appends it to `selectedTools` with the chosen proficiency.
+## Verify
+- Visit `/`, `/head-hunting`, `/davao-hub`, `/source/test-name`, complete (or jump to) completion step, confirm visual matches reference and button returns to the matching URL.
+- `tsgo --noEmit` passes.

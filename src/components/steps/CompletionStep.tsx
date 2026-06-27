@@ -59,23 +59,23 @@ const CompletionStep = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-muted">
-      <div className="flex-1 flex flex-col items-center justify-start px-4 py-8">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-4">
         <div className="w-full max-w-2xl overflow-hidden rounded-3xl shadow-xl bg-card">
           {/* Arched header */}
-          <div className="relative bg-primary h-28">
+          <div className="relative bg-primary h-20">
             <div className="absolute inset-x-0 -bottom-px h-12 bg-card rounded-t-[50%]" />
           </div>
 
-          <div className="px-6 sm:px-10 pb-10 -mt-10 relative">
-            <div className="flex justify-center mb-6">
-              <Logo className="h-14 w-auto" variant="black" />
+          <div className="px-6 sm:px-10 pb-6 -mt-10 relative">
+            <div className="flex justify-center mb-4">
+              <Logo className="h-10 w-auto" variant="black" />
             </div>
 
             {/* Animated check badge */}
-            <div className="relative flex justify-center mb-6">
-              <span className="absolute inline-flex h-24 w-24 rounded-full bg-emerald-400/30 animate-ping" />
-              <span className="relative inline-flex h-24 w-24 rounded-full bg-emerald-100 items-center justify-center">
-                <Check className="h-12 w-12 text-emerald-600" strokeWidth={3} />
+            <div className="relative flex justify-center mb-4">
+              <span className="absolute inline-flex h-16 w-16 rounded-full bg-emerald-400/30 animate-ping" />
+              <span className="relative inline-flex h-16 w-16 rounded-full bg-emerald-100 items-center justify-center">
+                <Check className="h-8 w-8 text-emerald-600" strokeWidth={3} />
               </span>
               {/* decorative dots */}
               <span className="absolute -top-1 left-1/3 h-1.5 w-1.5 rounded-full bg-primary/60" />
@@ -84,29 +84,35 @@ const CompletionStep = () => {
               <span className="absolute -bottom-1 right-[36%] h-1.5 w-1.5 rounded-full bg-emerald-500/60" />
             </div>
 
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-primary text-center leading-tight">
+            <h2 className="font-heading text-xl sm:text-2xl font-bold text-primary text-center leading-tight">
               Thank you for building your<br />profile with Cyberbacker!
             </h2>
-            <p className="text-center text-muted-foreground mt-3 text-sm sm:text-base">
+            <p className="text-center text-muted-foreground mt-2 text-sm sm:text-base">
               Your profile has been submitted successfully.
               <br />
               Here's what happens next:
             </p>
 
             {/* Timeline */}
-            <div className="mt-8 relative">
-              <div className="absolute left-[7px] top-3 bottom-3 border-l-2 border-dashed border-primary/30" />
-              <ul className="space-y-4">
-                {STEPS.map(({ icon: Icon, title, body }) => (
-                  <li key={title} className="relative pl-8">
-                    <span className="absolute left-0 top-6 h-4 w-4 rounded-full bg-primary ring-4 ring-card" />
-                    <div className="flex gap-4 items-start rounded-2xl border border-border bg-card p-4 shadow-sm">
-                      <div className="shrink-0 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Icon className="h-6 w-6 text-primary" />
+            <div className="mt-5 relative">
+              <ul className="space-y-3">
+                {STEPS.map(({ icon: Icon, title, body }, index) => (
+                  <li
+                    key={title}
+                    className="relative flex items-center gap-4"
+                  >
+                    {/* Dashed connector between this dot and the next */}
+                    {index !== STEPS.length - 1 && (
+                      <span className="absolute left-[7px] top-[calc(50%+0.5rem)] h-[calc(100%+0.75rem)] border-l-2 border-dashed border-primary/30" />
+                    )}
+                    <span className="relative z-10 shrink-0 h-4 w-4 rounded-full bg-primary ring-4 ring-card" />
+                    <div className="flex-1 min-w-0 flex gap-3 items-start rounded-2xl border border-border bg-card p-3 shadow-sm">
+                      <div className="shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-heading font-bold text-primary">{title}</h3>
-                        <p className="text-sm text-foreground/80 mt-1 leading-relaxed">
+                        <h3 className="font-heading font-bold text-sm text-primary">{title}</h3>
+                        <p className="text-sm text-foreground/80 mt-0.5 leading-relaxed">
                           {body}
                         </p>
                       </div>
@@ -118,13 +124,13 @@ const CompletionStep = () => {
 
             <button
               onClick={handleHome}
-              className="mt-8 w-full bg-primary text-primary-foreground rounded-xl py-4 font-semibold flex items-center justify-center gap-3 hover:bg-primary/90 transition-colors shadow-md"
+              className="mt-5 w-full bg-primary text-primary-foreground rounded-xl py-3 font-semibold flex items-center justify-center gap-3 hover:bg-primary/90 transition-colors shadow-md"
             >
               <Send className="h-5 w-5" />
               Got it, thanks!
             </button>
 
-            <p className="mt-5 text-center text-sm text-primary flex items-center justify-center gap-2">
+            <p className="mt-4 text-center text-sm text-primary flex items-center justify-center gap-2">
               <Heart className="h-4 w-4" />
               <span>
                 We appreciate your trust in <span className="font-semibold">Cyberbacker</span>.

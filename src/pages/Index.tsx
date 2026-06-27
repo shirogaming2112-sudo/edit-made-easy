@@ -113,7 +113,7 @@ const loadPersistedWizardState = (): PersistedWizardState | null => {
 const Index = ({ defaultReferralLink }: IndexProps) => {
   const persisted = typeof window !== 'undefined' ? loadPersistedWizardState() : null;
   const [started, setStarted] = useState(persisted?.started ?? false);
-  const [completed, setCompleted] = useState(false);
+  const [completed, setCompleted] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentSubStep, setCurrentSubStep] = useState(persisted?.currentSubStep ?? 1);
   const [completedSidebarSteps, setCompletedSidebarSteps] = useState<number[]>(

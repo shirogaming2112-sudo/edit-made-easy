@@ -374,68 +374,65 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </div>
       )}
 
-
-      {/* Network */}
-      {activeTab === 'network' && (
-        <div className="space-y-4 animate-fade-in">
-          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
-            <p className="font-semibold text-foreground">Network Requirements</p>
-            <p>10 Mbps DSL/Fiber Internet connection (USB sticks, signal-based & wireless connections are not allowed).</p>
-            <p>Please provide all required items labeled with (<span className="text-destructive font-semibold">*</span>).</p>
-            <div>
-              <p className="font-semibold text-foreground">Required Items</p>
-              <ul className="list-disc pl-5 mt-1 space-y-0.5">
-                <li>Primary Device Specifications screenshot (<span className="text-destructive font-semibold">*</span>)</li>
-                <li>Primary ISP Speedtest shareable link (<span className="text-destructive font-semibold">*</span>)</li>
-                <li>Secondary/Back up Device Specifications screenshot</li>
-                <li>Secondary/Back up ISP Speedtest shareable link</li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">How to Get Your Speed Test Shareable Link</p>
-              <p>To verify your internet stability, please complete a speed test and upload your result.</p>
-              <p className="font-semibold text-foreground mt-2">Steps:</p>
-              <ol className="list-decimal pl-5 mt-1 space-y-0.5">
-                <li>Go to <a href="https://www.speedtest.net" target="_blank" rel="noreferrer" className="text-primary hover:underline">https://www.speedtest.net</a></li>
-                <li>Click "Go" to start the test and wait for it to finish.</li>
-                <li>Once the results are displayed, look for the "Share" button.</li>
-                <li>Click "Share".</li>
-                <li>Select and highlight the "Web" result link, then copy the URL.</li>
-                <li>Paste the copied link into the required field in your profile.</li>
-              </ol>
-            </div>
-          </div>
-
+      {/* Internet / ISP details — merged into the single Device Specification view */}
+      <div className="space-y-4 animate-fade-in mt-6">
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">Network Requirements</p>
+          <p>10 Mbps DSL/Fiber Internet connection (USB sticks, signal-based &amp; wireless connections are not allowed).</p>
+          <p>Please provide all required items labeled with (<span className="text-destructive font-semibold">*</span>).</p>
           <div>
-            <RequiredLabel>Primary Internet Provider</RequiredLabel>
-            <input className="form-input" value={value.primaryISP} onChange={(e) => update('primaryISP', e.target.value)} />
+            <p className="font-semibold text-foreground">Required Items</p>
+            <ul className="list-disc pl-5 mt-1 space-y-0.5">
+              <li>Primary Internet Provider (<span className="text-destructive font-semibold">*</span>)</li>
+              <li>Primary ISP Speedtest shareable link (<span className="text-destructive font-semibold">*</span>)</li>
+              <li>Secondary/Back up Internet Provider</li>
+              <li>Secondary/Back up ISP Speedtest shareable link</li>
+            </ul>
           </div>
           <div>
-            <RequiredLabel>Primary ISP Speedtest Shareable Link</RequiredLabel>
-            <input
-              type="url"
-              className="form-input"
-              placeholder="https://www.speedtest.net/result/..."
-              value={(value as WorkSetupData).primaryISPSpeedtest ?? ''}
-              onChange={(e) => update('primaryISPSpeedtest' as keyof WorkSetupData, e.target.value as never)}
-            />
-          </div>
-          <div>
-            <label className="form-label">Secondary Internet Provider</label>
-            <input className="form-input" value={value.secondaryISP} onChange={(e) => update('secondaryISP', e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">Secondary ISP Speedtest Shareable Link</label>
-            <input
-              type="url"
-              className="form-input"
-              placeholder="https://www.speedtest.net/result/..."
-              value={(value as WorkSetupData).secondaryISPSpeedtest ?? ''}
-              onChange={(e) => update('secondaryISPSpeedtest' as keyof WorkSetupData, e.target.value as never)}
-            />
+            <p className="font-semibold text-foreground">How to Get Your Speed Test Shareable Link</p>
+            <p>To verify your internet stability, please complete a speed test and upload your result.</p>
+            <p className="font-semibold text-foreground mt-2">Steps:</p>
+            <ol className="list-decimal pl-5 mt-1 space-y-0.5">
+              <li>Go to <a href="https://www.speedtest.net" target="_blank" rel="noreferrer" className="text-primary hover:underline">https://www.speedtest.net</a></li>
+              <li>Click "Go" to start the test and wait for it to finish.</li>
+              <li>Once the results are displayed, look for the "Share" button.</li>
+              <li>Click "Share".</li>
+              <li>Select and highlight the "Web" result link, then copy the URL.</li>
+              <li>Paste the copied link into the required field in your profile.</li>
+            </ol>
           </div>
         </div>
-      )}
+
+        <div>
+          <RequiredLabel>Primary Internet Provider</RequiredLabel>
+          <input className="form-input" value={value.primaryISP} onChange={(e) => update('primaryISP', e.target.value)} />
+        </div>
+        <div>
+          <RequiredLabel>Primary ISP Speedtest Shareable Link</RequiredLabel>
+          <input
+            type="url"
+            className="form-input"
+            placeholder="https://www.speedtest.net/result/..."
+            value={(value as WorkSetupData).primaryISPSpeedtest ?? ''}
+            onChange={(e) => update('primaryISPSpeedtest' as keyof WorkSetupData, e.target.value as never)}
+          />
+        </div>
+        <div>
+          <label className="form-label">Secondary/Back up Internet Provider</label>
+          <input className="form-input" value={value.secondaryISP} onChange={(e) => update('secondaryISP', e.target.value)} />
+        </div>
+        <div>
+          <label className="form-label">Secondary/Back up ISP Speedtest Shareable Link</label>
+          <input
+            type="url"
+            className="form-input"
+            placeholder="https://www.speedtest.net/result/..."
+            value={(value as WorkSetupData).secondaryISPSpeedtest ?? ''}
+            onChange={(e) => update('secondaryISPSpeedtest' as keyof WorkSetupData, e.target.value as never)}
+          />
+        </div>
+      </div>
     </div>
   );
 });
@@ -443,3 +440,4 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
 WorkSetupStep.displayName = 'WorkSetupStep';
 
 export default WorkSetupStep;
+

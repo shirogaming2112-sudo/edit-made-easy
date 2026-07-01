@@ -737,15 +737,18 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
       </main>
 
       <Dialog open={assessmentOpen} onOpenChange={(o) => { if (!submittingAssessment) setAssessmentOpen(o); }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Values Assessment</DialogTitle>
             <DialogDescription>
-              Please complete the Values Assessment to continue with your reapplication.
-              Drag each option to rank from most (top) to least (bottom) reflective of you.
+              Please complete the embedded Values Assessment below to continue with your reapplication.
             </DialogDescription>
           </DialogHeader>
-          <ValuesAssessmentStep questions={assessment} onChange={setAssessment} />
+          <ValuesAssessmentStep
+            contactId={contactId ?? ''}
+            email={profile.firstName ? undefined : undefined}
+            onCompleted={() => setAssessmentDone(true)}
+          />
           <DialogFooter className="gap-2 sm:gap-2">
             <button
               type="button"
@@ -753,22 +756,27 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
               disabled={submittingAssessment}
               className="btn-outline"
             >
-              Cancel
+              Close
             </button>
             <button
               type="button"
-              onClick={submitAssessment}
-              disabled={submittingAssessment}
-              aria-busy={submittingAssessment}
+              onClick={() => {
+                if (!assessmentDone) {
+                  toast.error('Please complete the assessment before continuing.');
+                  return;
+                }
+                setAssessmentOpen(false);
+                setAssessmentConfirmOpen(true);
+              }}
+              disabled={submittingAssessment || !assessmentDone}
               className="btn-primary inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {submittingAssessment && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-              {submittingAssessment ? 'Submitting…' : 'Submit Assessment & Continue'}
+              Continue
             </button>
-
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       <Dialog open={assessmentConfirmOpen} onOpenChange={setAssessmentConfirmOpen}>
         <DialogContent className="sm:max-w-md">

@@ -170,21 +170,14 @@ async function detectSystemSpecs(): Promise<DetectedSpecs> {
 
 
 const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ data, onChange }, ref) => {
-  const [activeTab, setActiveTab] = useState<TabKey>('general');
   const [internal, setInternal] = useState<WorkSetupData>(emptyWorkSetup);
   const [detecting, setDetecting] = useState(false);
   const [consent, setConsent] = useState(false);
   const value = data ?? internal;
 
   useImperativeHandle(ref, () => ({
-    tryAdvance: () => {
-      if (activeTab === 'general') {
-        setActiveTab('network');
-        return false;
-      }
-      return true;
-    },
-  }), [activeTab]);
+    tryAdvance: () => true,
+  }), []);
 
   const update = <K extends keyof WorkSetupData>(field: K, v: WorkSetupData[K]) => {
     const next = { ...value, [field]: v };
@@ -215,22 +208,10 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-border mb-6 overflow-x-auto">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`tab-button whitespace-nowrap ${activeTab === tab.key ? 'tab-button-active' : 'tab-button-inactive'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* General / Device Specification */}
-      {activeTab === 'general' && (
+      {/* Device Specification */}
+      {(
         <div className="space-y-6 animate-fade-in">
+
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
             <div>
               <p className="font-semibold text-foreground">Required Equipment:</p>

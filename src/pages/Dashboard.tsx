@@ -14,11 +14,7 @@ import PortfolioStep from '@/components/steps/PortfolioStep';
 import ValuePropositionStep from '@/components/steps/ValuePropositionStep';
 import WorkSetupStep, { WorkSetupData, emptyWorkSetup } from '@/components/steps/WorkSetupStep';
 import ComplianceStep, { ComplianceFormData, emptyCompliance } from '@/components/steps/ComplianceStep';
-import ValuesAssessmentStep, {
-  buildInitialAssessment,
-  computeScores,
-} from '@/components/steps/ValuesAssessmentStep';
-import type { AssessmentQuestion } from '@/data/valuesAssessment';
+import ValuesAssessmentStep from '@/components/steps/ValuesAssessmentStep';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -31,10 +27,11 @@ import {
   updateProfessionalBackground, updateWorkExperience, updateToolsPlatforms,
   updateSkills, updateCertifications, updateWorkSetup, updateCompliance,
   updateValueProposition, updatePortfolio,
-  reapply, todayMDT, extractReferralCode, submitValuesAssessment,
+  reapply, todayMDT, extractReferralCode,
   submitAttendance, type AttendanceAvailability,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
+
 import SearchableSelect from '@/components/common/SearchableSelect';
 import PhoneInput from '@/components/common/PhoneInput';
 import { COUNTRY_NAMES, NATIONALITIES } from '@/lib/countries';
@@ -137,10 +134,10 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const [reapplyCode, setReapplyCode] = useState('');
   const [reapplying, setReapplying] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
-  const [assessment, setAssessment] = useState<AssessmentQuestion[]>(() => buildInitialAssessment());
   const [assessmentDone, setAssessmentDone] = useState(false);
-  const [submittingAssessment, setSubmittingAssessment] = useState(false);
+  const submittingAssessment = false;
   const [assessmentConfirmOpen, setAssessmentConfirmOpen] = useState(false);
+
 
   // Attendance (attendance dashboard variant)
   const [attendanceLoginOpen, setAttendanceLoginOpen] = useState(false);
@@ -418,37 +415,11 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const handleReapplyClick = () => {
     if (!canReapply) return;
     setReapplyCode('');
-    setAssessment(buildInitialAssessment());
     setAssessmentDone(false);
     setAssessmentOpen(true);
   };
 
-  const submitAssessment = async () => {
-    if (submittingAssessment) return;
-    if (!contactId) {
-      toast.error('Not signed in.');
-      return;
-    }
-    setSubmittingAssessment(true);
-    try {
-      const scores = computeScores(assessment);
-      await submitValuesAssessment({
-        contact_id: contactId,
-        scores,
-        answers: assessment.map((q) => ({
-          question: q.question,
-          ranked: q.options.map((o) => ({ type: o.type, value: o.value })),
-        })),
-      });
-      setAssessmentDone(true);
-      setAssessmentOpen(false);
-      setAssessmentConfirmOpen(true);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to submit assessment');
-    } finally {
-      setSubmittingAssessment(false);
-    }
-  };
+
 
 
 
@@ -737,15 +708,18 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
       </main>
 
       <Dialog open={assessmentOpen} onOpenChange={(o) => { if (!submittingAssessment) setAssessmentOpen(o); }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Values Assessment</DialogTitle>
             <DialogDescription>
-              Please complete the Values Assessment to continue with your reapplication.
-              Drag each option to rank from most (top) to least (bottom) reflective of you.
+              Please complete the embedded Values Assessment below to continue with your reapplication.
             </DialogDescription>
           </DialogHeader>
-          <ValuesAssessmentStep questions={assessment} onChange={setAssessment} />
+          <ValuesAssessmentStep
+            contactId={contactId ?? ''}
+            email={profile.firstName ? undefined : undefined}
+            onCompleted={() => setAssessmentDone(true)}
+          />
           <DialogFooter className="gap-2 sm:gap-2">
             <button
               type="button"
@@ -753,22 +727,27 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
               disabled={submittingAssessment}
               className="btn-outline"
             >
-              Cancel
+              Close
             </button>
             <button
               type="button"
-              onClick={submitAssessment}
-              disabled={submittingAssessment}
-              aria-busy={submittingAssessment}
+              onClick={() => {
+                if (!assessmentDone) {
+                  toast.error('Please complete the assessment before continuing.');
+                  return;
+                }
+                setAssessmentOpen(false);
+                setAssessmentConfirmOpen(true);
+              }}
+              disabled={submittingAssessment || !assessmentDone}
               className="btn-primary inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {submittingAssessment && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-              {submittingAssessment ? 'Submitting…' : 'Submit Assessment & Continue'}
+              Continue
             </button>
-
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       <Dialog open={assessmentConfirmOpen} onOpenChange={setAssessmentConfirmOpen}>
         <DialogContent className="sm:max-w-md">

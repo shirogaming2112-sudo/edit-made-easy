@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import FileDropzone from '@/components/wizard/FileDropzone';
 import RequiredLabel from '@/components/wizard/RequiredLabel';
+import SampleDocumentModal from '@/components/common/SampleDocumentModal';
+import { Eye, Pencil } from 'lucide-react';
+import nbiSample from '@/assets/nbi-sample.png';
+import policeSample from '@/assets/police-sample.png';
 
 export interface ComplianceFormData {
   authorized: boolean;
@@ -34,6 +38,7 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
   const [internal, setInternal] = useState<ComplianceFormData>(emptyCompliance);
   const [canSubmitNbiPolice, setCanSubmitNbiPolice] = useState<'yes' | 'no' | ''>('');
   const [canSubmitCoe, setCanSubmitCoe] = useState<'yes' | 'no' | ''>('');
+  const [sampleOpen, setSampleOpen] = useState<null | 'nbi' | 'police'>(null);
   const value = data ?? internal;
   const update = <K extends keyof ComplianceFormData>(field: K, v: ComplianceFormData[K]) => {
     const next = { ...value, [field]: v };
@@ -81,8 +86,6 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
         <p>By completing your documentation within your profile, you demonstrate professionalism, readiness, and commitment to becoming part of the Cyberbacker community.</p>
         <p>This step ensures your profile is fully verified and client-ready from the start — helping you move faster from creation to potential placement.</p>
         <p>Upload clear and valid (not expired) documents.</p>
-        <p>Please ensure that the document submitted is clear, authentic, valid, and verifiable through the official <a href="https://verification.nbi-clearance.io/" target="_blank" rel="noreferrer" className="text-primary hover:underline">NBI Clearance</a> verification portal prior to uploading.</p>
-        <p>Please ensure that the document submitted is clear, authentic, valid, and verifiable through the official <a href="https://pnpclearance.ph/" target="_blank" rel="noreferrer" className="text-primary hover:underline">Police Clearance</a> verification portal prior to uploading.</p>
         <ul className="list-disc pl-5 space-y-0.5">
           <li>
             <a href="https://cyberbackercareers.com/accepted-ids/" target="_blank" rel="noreferrer" className="text-primary hover:underline">Valid ID</a>
@@ -98,33 +101,59 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
         <FileDropzone label="valid-id" imagesOnly multiple={false} maxFiles={1} onFilesSelected={(files) => update('validId', files[0] ?? null)} />
       </div>
 
-      {/* NBI + Police gate */}
-      <div className="border border-border rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-foreground">
-          Are you able to submit your NBI Clearance and Police Clearance at this time?
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
+      {/* NBI + Police gate — hides once answered */}
+      {canSubmitNbiPolice === '' ? (
+        <div className="border border-border rounded-xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-foreground">
+            Are you able to submit your NBI Clearance and Police Clearance at this time?
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => setCanSubmitNbiPolice('yes')}
+              className="btn-outline px-6"
+            >
+              Yes, I can submit now
+            </button>
+            <button
+              type="button"
+              onClick={() => setCanSubmitNbiPolice('no')}
+              className="btn-outline px-6"
+            >
+              No, I'll submit later
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => setCanSubmitNbiPolice('yes')}
-            className={canSubmitNbiPolice === 'yes' ? 'btn-primary px-6' : 'btn-outline px-6'}
+            onClick={() => setCanSubmitNbiPolice('')}
+            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
           >
-            Yes, I can submit now
-          </button>
-          <button
-            type="button"
-            onClick={() => setCanSubmitNbiPolice('no')}
-            className={canSubmitNbiPolice === 'no' ? 'btn-primary px-6' : 'btn-outline px-6'}
-          >
-            No, I'll submit later
+            <Pencil className="w-3 h-3" /> Change answer for NBI &amp; Police Clearance
           </button>
         </div>
-      </div>
+      )}
 
       {canSubmitNbiPolice === 'yes' && (
         <>
           <div className="space-y-3 border border-border rounded-xl p-4">
             <RequiredLabel>NBI Clearance</RequiredLabel>
+            <p className="text-xs text-muted-foreground">
+              Please ensure that the document submitted is clear, authentic, valid, and verifiable through the official{' '}
+              <a href="https://verification.nbi-clearance.io/" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                NBI Clearance
+              </a>{' '}
+              verification portal prior to uploading.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSampleOpen('nbi')}
+              className="btn-outline text-xs px-3 py-1.5 inline-flex items-center gap-2"
+            >
+              <Eye className="w-3.5 h-3.5" /> See example of document
+            </button>
             <FileDropzone label="nbi-clearance" imagesOnly multiple={false} maxFiles={1} onFilesSelected={(files) => update('nbiClearance', files[0] ?? null)} />
             <div>
               <RequiredLabel>Valid Until</RequiredLabel>
@@ -140,6 +169,20 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
 
           <div className="space-y-3 border border-border rounded-xl p-4">
             <RequiredLabel>Police Clearance</RequiredLabel>
+            <p className="text-xs text-muted-foreground">
+              Please ensure that the document submitted is clear, authentic, valid, and verifiable through the official{' '}
+              <a href="https://pnpclearance.ph/" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                Police Clearance
+              </a>{' '}
+              verification portal prior to uploading.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSampleOpen('police')}
+              className="btn-outline text-xs px-3 py-1.5 inline-flex items-center gap-2"
+            >
+              <Eye className="w-3.5 h-3.5" /> See example of document
+            </button>
             <FileDropzone label="police-clearance" imagesOnly multiple={false} maxFiles={1} onFilesSelected={(files) => update('policeClearance', files[0] ?? null)} />
             <div>
               <RequiredLabel>Valid Until</RequiredLabel>
@@ -172,28 +215,40 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
         </div>
       )}
 
-      {/* COE gate */}
-      <div className="border border-border rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-foreground">
-          Are you able to submit your Certificate of Employment (COE) at this time?
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
+      {/* COE gate — hides once answered */}
+      {canSubmitCoe === '' ? (
+        <div className="border border-border rounded-xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-foreground">
+            Are you able to submit your Certificate of Employment (COE) at this time?
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => setCanSubmitCoe('yes')}
+              className="btn-outline px-6"
+            >
+              Yes, I can submit now
+            </button>
+            <button
+              type="button"
+              onClick={() => setCanSubmitCoe('no')}
+              className="btn-outline px-6"
+            >
+              No, I'll submit later
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => setCanSubmitCoe('yes')}
-            className={canSubmitCoe === 'yes' ? 'btn-primary px-6' : 'btn-outline px-6'}
+            onClick={() => setCanSubmitCoe('')}
+            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
           >
-            Yes, I can submit now
-          </button>
-          <button
-            type="button"
-            onClick={() => setCanSubmitCoe('no')}
-            className={canSubmitCoe === 'no' ? 'btn-primary px-6' : 'btn-outline px-6'}
-          >
-            No, I'll submit later
+            <Pencil className="w-3 h-3" /> Change answer for Certificate of Employment
           </button>
         </div>
-      </div>
+      )}
 
       {canSubmitCoe === 'yes' && (
         <div className="space-y-3 border border-border rounded-xl p-4">
@@ -226,6 +281,21 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
           </a>
         </div>
       )}
+
+      <SampleDocumentModal
+        open={sampleOpen === 'nbi'}
+        onOpenChange={(o) => setSampleOpen(o ? 'nbi' : null)}
+        src={nbiSample}
+        title="Sample NBI Clearance"
+        description="Reference only — please upload your own valid document."
+      />
+      <SampleDocumentModal
+        open={sampleOpen === 'police'}
+        onOpenChange={(o) => setSampleOpen(o ? 'police' : null)}
+        src={policeSample}
+        title="Sample Police Clearance"
+        description="Reference only — please upload your own valid document."
+      />
     </div>
   );
 };

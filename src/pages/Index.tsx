@@ -24,10 +24,7 @@ import PortfolioStep from '@/components/steps/PortfolioStep';
 import CertificationsStep from '@/components/steps/CertificationsStep';
 import WorkSetupStep, { WorkSetupStepHandle } from '@/components/steps/WorkSetupStep';
 import ComplianceStep from '@/components/steps/ComplianceStep';
-import ValuesAssessmentStep, {
-  buildInitialAssessment,
-  computeScores,
-} from '@/components/steps/ValuesAssessmentStep';
+import ValuesAssessmentStep from '@/components/steps/ValuesAssessmentStep';
 import CompletionStep from '@/components/steps/CompletionStep';
 import WizardSidebar from '@/components/wizard/WizardSidebar';
 import WizardNavigation from '@/components/wizard/WizardNavigation';
@@ -40,12 +37,11 @@ import {
   loadContactId,
   submitSubstep,
   finishApplication,
-  submitValuesAssessment,
   todayMDT,
   extractReferralCode,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
-import type { AssessmentQuestion } from '@/data/valuesAssessment';
+
 import {
   PersonalInfo,
   Education,
@@ -119,9 +115,10 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
   const [completedSidebarSteps, setCompletedSidebarSteps] = useState<number[]>(
     persisted?.completedSidebarSteps ?? [],
   );
-  const [assessment, setAssessment] = useState<AssessmentQuestion[]>(() => buildInitialAssessment());
+  const [assessmentCompleted, setAssessmentCompleted] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [showIntroModal, setShowIntroModal] = useState(false);
+
 
   // Persist wizard progress so a browser refresh resumes on the same step.
   // Cleared when the wizard completes or the user returns to the welcome page.
@@ -198,30 +195,23 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
 
     // Persist this substep to the FastAPI backend before advancing.
     const contactId = loadContactId();
-    if (contactId) {
+    if (currentSubStep === 12) {
+      // IMX Values Assessment — the backend is the source of truth. The step
+      // component signals completion via `onCompleted`; block Next until then.
+      if (!assessmentCompleted) {
+        toast.error('Please complete the assessment before continuing.');
+        return;
+      }
+    } else if (contactId) {
       try {
         setSubmitting(true);
-        if (currentSubStep === 12) {
-          // Values Assessment: compute scores and POST /values_assessment
-          const scores = computeScores(assessment);
-          await submitValuesAssessment({
-            contact_id: contactId,
-            email: values.email,
-            scores,
-            answers: assessment.map((q) => ({
-              question: q.question,
-              ranked: q.options.map((o) => ({ type: o.type, value: o.value })),
-            })),
-          });
-        } else {
-          await submitSubstep(contactId, currentSubStep, values, referrer);
-          // /finish marks the application as completed — fire it as soon as
-          // the Work Setup step (substep 10) is saved (network-tab Next), so
-          // the wizard end no longer needs a global submit endpoint.
-          if (currentSubStep === 10) {
-            try { await finishApplication(contactId, todayMDT()); }
-            catch (e) { console.warn('finish failed', e); }
-          }
+        await submitSubstep(contactId, currentSubStep, values, referrer);
+        // /finish marks the application as completed — fire it as soon as
+        // the Work Setup step (substep 10) is saved so the wizard end no
+        // longer needs a global submit endpoint.
+        if (currentSubStep === 10) {
+          try { await finishApplication(contactId, todayMDT()); }
+          catch (e) { console.warn('finish failed', e); }
         }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to save');
@@ -230,6 +220,7 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
       }
       setSubmitting(false);
     }
+
 
     if (currentSidebar !== nextSidebar && !completedSidebarSteps.includes(currentSidebar)) {
       setCompletedSidebarSteps((prev) => [...prev, currentSidebar]);
@@ -448,8 +439,13 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               />
             )}
             {currentSubStep === 12 && (
-              <ValuesAssessmentStep questions={assessment} onChange={setAssessment} />
+              <ValuesAssessmentStep
+                contactId={loadContactId() ?? ''}
+                email={values.email}
+                onCompleted={() => setAssessmentCompleted(true)}
+              />
             )}
+
 
             <WizardNavigation
               onPrevious={handlePrevious}

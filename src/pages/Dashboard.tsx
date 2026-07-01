@@ -14,11 +14,7 @@ import PortfolioStep from '@/components/steps/PortfolioStep';
 import ValuePropositionStep from '@/components/steps/ValuePropositionStep';
 import WorkSetupStep, { WorkSetupData, emptyWorkSetup } from '@/components/steps/WorkSetupStep';
 import ComplianceStep, { ComplianceFormData, emptyCompliance } from '@/components/steps/ComplianceStep';
-import ValuesAssessmentStep, {
-  buildInitialAssessment,
-  computeScores,
-} from '@/components/steps/ValuesAssessmentStep';
-import type { AssessmentQuestion } from '@/data/valuesAssessment';
+import ValuesAssessmentStep from '@/components/steps/ValuesAssessmentStep';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -31,10 +27,11 @@ import {
   updateProfessionalBackground, updateWorkExperience, updateToolsPlatforms,
   updateSkills, updateCertifications, updateWorkSetup, updateCompliance,
   updateValueProposition, updatePortfolio,
-  reapply, todayMDT, extractReferralCode, submitValuesAssessment,
+  reapply, todayMDT, extractReferralCode,
   submitAttendance, type AttendanceAvailability,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
+
 import SearchableSelect from '@/components/common/SearchableSelect';
 import PhoneInput from '@/components/common/PhoneInput';
 import { COUNTRY_NAMES, NATIONALITIES } from '@/lib/countries';
@@ -137,10 +134,10 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const [reapplyCode, setReapplyCode] = useState('');
   const [reapplying, setReapplying] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
-  const [assessment, setAssessment] = useState<AssessmentQuestion[]>(() => buildInitialAssessment());
   const [assessmentDone, setAssessmentDone] = useState(false);
-  const [submittingAssessment, setSubmittingAssessment] = useState(false);
+  const submittingAssessment = false;
   const [assessmentConfirmOpen, setAssessmentConfirmOpen] = useState(false);
+
 
   // Attendance (attendance dashboard variant)
   const [attendanceLoginOpen, setAttendanceLoginOpen] = useState(false);
@@ -418,37 +415,11 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const handleReapplyClick = () => {
     if (!canReapply) return;
     setReapplyCode('');
-    setAssessment(buildInitialAssessment());
     setAssessmentDone(false);
     setAssessmentOpen(true);
   };
 
-  const submitAssessment = async () => {
-    if (submittingAssessment) return;
-    if (!contactId) {
-      toast.error('Not signed in.');
-      return;
-    }
-    setSubmittingAssessment(true);
-    try {
-      const scores = computeScores(assessment);
-      await submitValuesAssessment({
-        contact_id: contactId,
-        scores,
-        answers: assessment.map((q) => ({
-          question: q.question,
-          ranked: q.options.map((o) => ({ type: o.type, value: o.value })),
-        })),
-      });
-      setAssessmentDone(true);
-      setAssessmentOpen(false);
-      setAssessmentConfirmOpen(true);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to submit assessment');
-    } finally {
-      setSubmittingAssessment(false);
-    }
-  };
+
 
 
 

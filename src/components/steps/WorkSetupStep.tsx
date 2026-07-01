@@ -4,12 +4,7 @@ import RequiredLabel from '@/components/wizard/RequiredLabel';
 import { Cpu, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type TabKey = 'general' | 'network';
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'general', label: 'Device Specification' },
-  { key: 'network', label: 'Network Requirements' },
-];
 
 export interface DetectedSpecs {
   cpu: string;

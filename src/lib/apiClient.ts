@@ -657,3 +657,106 @@ export async function saveAssessmentLink(url: string): Promise<void> {
     body: JSON.stringify({ url }),
   });
 }
+
+// ------------------------ IMX ASSESSMENT (FastAPI proxy) ------------------------
+//
+// All IMX (InnerMetrix) traffic must go through the FastAPI backend under the
+// `/api/v1/values_assessment` prefix — the browser must never talk to IMX
+// directly. `generate_codes` is idempotent: calling it repeatedly for the same
+// user returns the existing code, so refreshing the page can never create a
+// duplicate assessment.
+
+const IMX_PREFIX = '/api/v1/values_assessment';
+
+function imxUrl(path: string): string {
+  return `${API_BASE}${IMX_PREFIX}${path}`;
+}
+
+async function imxRequest<T>(path: string, init: RequestInit): Promise<T> {
+  if (!API_BASE) {
+    throw new Error('VITE_API_BASE_URL is not configured. Edit your .env file.');
+  }
+  const res = await fetch(imxUrl(path), {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      detail = j?.detail ?? detail;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  return (await res.json()) as T;
+}
+
+export interface ImxCodeResponse {
+  code: string;
+  assessment_url?: string;
+  completed?: boolean;
+}
+
+export interface ImxLaunchResponse {
+  assessment_url: string;
+  code?: string;
+}
+
+export interface ImxResultsResponse {
+  completed: boolean;
+  code?: string;
+  scores?: Record<string, number>;
+  result?: string;
+  report_url?: string;
+  [k: string]: unknown;
+}
+
+/** Generate — or reuse — the assessment code for this user. Idempotent. */
+export function generateAssessmentCode(contactId: string, email?: string) {
+  return imxRequest<ImxCodeResponse>('/generate_codes', {
+    method: 'POST',
+    body: JSON.stringify({ contact_id: contactId, email: email ?? '' }),
+  });
+}
+
+export function launchValuesAssessment(code: string) {
+  return imxRequest<ImxLaunchResponse>('/launch_values', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function launchDiscAssessment(code: string) {
+  return imxRequest<ImxLaunchResponse>('/launch_disc', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function launchAiAssessment(code: string) {
+  return imxRequest<ImxLaunchResponse>('/launch_ai', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function launchAdvancedInsights(code: string) {
+  return imxRequest<ImxLaunchResponse>('/launch_advanced_insights', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function getValuesResults(code: string) {
+  return imxRequest<ImxResultsResponse>(`/values/results/${encodeURIComponent(code)}`, {
+    method: 'GET',
+  });
+}
+
+export function getValuesReportUrl(code: string): string {
+  return imxUrl(`/values/report/${encodeURIComponent(code)}`);
+}
+

@@ -1,69 +1,147 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Loader2, CheckCircle2, Download, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
-import {
-  QUESTION_POOL,
-  QUESTION_COUNT,
-  RANK_POINTS,
-  type AssessmentOption,
-  type AssessmentQuestion,
-  type DriverKey,
-} from '@/data/valuesAssessment';
+  generateAssessmentCode,
+  launchValuesAssessment,
+  getValuesResults,
+  getValuesReportUrl,
+} from '@/lib/apiClient';
+import type { AssessmentQuestion } from '@/data/valuesAssessment';
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+/**
+ * IMX (InnerMetrix) Values Assessment — embedded via iframe.
+ *
+ * All traffic goes through the FastAPI backend; the browser never talks to
+ * IMX directly. The backend keeps assessment codes idempotent per user, so
+ * refreshing the page reuses the existing code instead of generating a new
+ * one and never restarts the assessment.
+ */
+
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const CHECK_COOLDOWN_S = 30;
+
+type Phase = 'loading' | 'error' | 'in_progress' | 'completed';
+
+interface ValuesAssessmentStepProps {
+  contactId?: string;
+  email?: string;
+  /** Called when the backend confirms the assessment is completed. */
+  onCompleted?: () => void;
 }
 
-export interface ValuesAssessmentStepProps {
-  /** Ordered list of questions with current option ranking. */
-  questions: AssessmentQuestion[];
-  onChange: (questions: AssessmentQuestion[]) => void;
-}
+const startTimeKey = (code: string) => `cb_imx_start_${code}`;
 
-/** Build a fresh randomized assessment (15 questions, options shuffled). */
-export function buildInitialAssessment(): AssessmentQuestion[] {
-  return shuffle(QUESTION_POOL)
-    .slice(0, QUESTION_COUNT)
-    .map((q) => ({ ...q, options: shuffle(q.options) }));
-}
+const ValuesAssessmentStep = ({ contactId, email, onCompleted }: ValuesAssessmentStepProps) => {
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [code, setCode] = useState<string>('');
+  const [assessmentUrl, setAssessmentUrl] = useState<string>('');
+  const [reportUrl, setReportUrl] = useState<string>('');
+  const [elapsedReady, setElapsedReady] = useState<boolean>(false);
+  const [checking, setChecking] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [notCompleteMsg, setNotCompleteMsg] = useState<string>('');
+  const completedNotifiedRef = useRef(false);
 
-const ValuesAssessmentStep = ({ questions, onChange }: ValuesAssessmentStepProps) => {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const notifyCompleted = useCallback(() => {
+    if (completedNotifiedRef.current) return;
+    completedNotifiedRef.current = true;
+    onCompleted?.();
+  }, [onCompleted]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const qIdx = active.data.current?.questionIndex as number | undefined;
-    if (typeof qIdx !== 'number') return;
-    const next = [...questions];
-    const fromIdx = next[qIdx].options.findIndex((o) => `${qIdx}-${o.value}-${o.type}` === active.id);
-    const toIdx = next[qIdx].options.findIndex((o) => `${qIdx}-${o.value}-${o.type}` === over.id);
-    if (fromIdx < 0 || toIdx < 0) return;
-    next[qIdx] = { ...next[qIdx], options: arrayMove(next[qIdx].options, fromIdx, toIdx) };
-    onChange(next);
+  // Load / resume — idempotent generate + launch.
+  useEffect(() => {
+    if (!contactId) {
+      setPhase('error');
+      setErrorMsg('You must be signed in to start the assessment.');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setPhase('loading');
+        const codeRes = await generateAssessmentCode(contactId, email);
+        if (cancelled) return;
+        setCode(codeRes.code);
+
+        if (codeRes.completed) {
+          setReportUrl(getValuesReportUrl(codeRes.code));
+          setPhase('completed');
+          notifyCompleted();
+          return;
+        }
+
+        // Launch (or resume) the values assessment.
+        let launchUrl = codeRes.assessment_url ?? '';
+        if (!launchUrl) {
+          const launch = await launchValuesAssessment(codeRes.code);
+          if (cancelled) return;
+          launchUrl = launch.assessment_url;
+        }
+        setAssessmentUrl(launchUrl);
+
+        // Persist / restore the launch timestamp so the 5-min window survives refresh.
+        let startedAt = 0;
+        try {
+          const raw = localStorage.getItem(startTimeKey(codeRes.code));
+          startedAt = raw ? Number(raw) : 0;
+        } catch { /* ignore */ }
+        if (!startedAt || Number.isNaN(startedAt)) {
+          startedAt = Date.now();
+          try { localStorage.setItem(startTimeKey(codeRes.code), String(startedAt)); } catch { /* ignore */ }
+        }
+        const elapsed = Date.now() - startedAt;
+        if (elapsed >= FIVE_MINUTES_MS) {
+          setElapsedReady(true);
+        } else {
+          const t = window.setTimeout(() => setElapsedReady(true), FIVE_MINUTES_MS - elapsed);
+          return () => window.clearTimeout(t);
+        }
+        setPhase('in_progress');
+      } catch (e) {
+        if (cancelled) return;
+        setPhase('error');
+        setErrorMsg(e instanceof Error ? e.message : 'Failed to load the assessment.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contactId, email, notifyCompleted]);
+
+  // Ensure phase flips to in_progress once we have the url (async race guard).
+  useEffect(() => {
+    if (assessmentUrl && phase === 'loading') setPhase('in_progress');
+  }, [assessmentUrl, phase]);
+
+  // Cooldown ticker for the Check Status button.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = window.setInterval(() => setCooldown((c) => (c > 0 ? c - 1 : 0)), 1000);
+    return () => window.clearInterval(t);
+  }, [cooldown]);
+
+  const handleCheckStatus = async () => {
+    if (!code || checking || cooldown > 0) return;
+    setChecking(true);
+    setNotCompleteMsg('');
+    try {
+      const res = await getValuesResults(code);
+      if (res.completed) {
+        setReportUrl(res.report_url || getValuesReportUrl(code));
+        setPhase('completed');
+        notifyCompleted();
+        toast.success('Assessment completed. You may continue.');
+      } else {
+        setNotCompleteMsg(
+          'Your assessment is not yet complete. Please finish the assessment before continuing, then try again.',
+        );
+        setCooldown(CHECK_COOLDOWN_S);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to check status.');
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
@@ -71,125 +149,110 @@ const ValuesAssessmentStep = ({ questions, onChange }: ValuesAssessmentStepProps
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
         <p className="text-sm font-semibold text-foreground">Values Assessment</p>
         <p className="text-sm text-muted-foreground mt-1">
-          For each question, please rank the options from <span className="font-semibold text-foreground">most preferred (top)</span> to
-          <span className="font-semibold text-foreground"> least preferred (bottom)</span> by dragging and dropping them. Your answers help us
-          understand what motivates you at work.
+          Please complete the embedded assessment below. Your progress is saved automatically —
+          if you close the page you can return later and pick up where you left off.
         </p>
       </div>
 
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="space-y-6">
-          {questions.map((q, index) => (
-            <QuestionCard key={`${index}-${q.question}`} question={q} questionIndex={index} questionNumber={index + 1} />
-          ))}
+      {phase === 'loading' && (
+        <div className="rounded-xl border border-border bg-card p-10 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <p className="text-sm">Preparing your assessment…</p>
         </div>
-      </DndContext>
-    </div>
-  );
-};
+      )}
 
-interface QuestionCardProps {
-  question: AssessmentQuestion;
-  questionIndex: number;
-  questionNumber: number;
-}
+      {phase === 'error' && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-2">
+          <p className="text-sm font-semibold text-destructive">Could not load the assessment</p>
+          <p className="text-sm text-muted-foreground">{errorMsg}</p>
+        </div>
+      )}
 
-const QuestionCard = ({ question, questionIndex, questionNumber }: QuestionCardProps) => {
-  const ids = useMemo(
-    () => question.options.map((o) => `${questionIndex}-${o.value}-${o.type}`),
-    [question.options, questionIndex],
-  );
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-baseline gap-3 mb-1">
-        <span className="text-xs font-semibold text-primary bg-primary/10 rounded-full px-2 py-0.5 shrink-0">
-          {questionNumber}
-        </span>
-        <h3 className="font-heading text-base sm:text-lg font-semibold text-foreground">{question.question}</h3>
-      </div>
-      <p className="text-xs text-muted-foreground italic mb-4 ml-9">{question.reference}</p>
-
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <ol className="space-y-2">
-          {question.options.map((opt, i) => (
-            <SortableOption
-              key={ids[i]}
-              id={ids[i]}
-              option={opt}
-              rank={i + 1}
-              questionIndex={questionIndex}
+      {phase === 'in_progress' && assessmentUrl && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border overflow-hidden bg-card">
+            <iframe
+              src={assessmentUrl}
+              title="Values Assessment"
+              className="w-full h-[70vh] min-h-[520px] border-0"
+              allow="fullscreen; clipboard-write"
             />
-          ))}
-        </ol>
-      </SortableContext>
+          </div>
+
+          {!elapsedReady ? (
+            <p className="text-xs text-muted-foreground text-center">
+              The Continue button will appear here once you have had time to complete the assessment.
+              Please finish it in the frame above.
+            </p>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCheckStatus}
+                disabled={checking || cooldown > 0}
+                className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                {cooldown > 0
+                  ? `Check Again (${cooldown}s)`
+                  : checking
+                    ? 'Checking…'
+                    : 'Check Assessment Status'}
+              </button>
+              {notCompleteMsg && (
+                <p className="text-sm text-amber-700 dark:text-amber-300 text-center max-w-md">
+                  {notCompleteMsg}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {phase === 'completed' && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Assessment completed</p>
+              <p className="text-sm text-muted-foreground">
+                Thank you — your responses have been recorded. You may continue.
+              </p>
+            </div>
+          </div>
+          {reportUrl && (
+            <a
+              href={reportUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-outline inline-flex items-center gap-2 text-sm px-4 py-2 sm:ml-auto"
+            >
+              <Download className="w-4 h-4" /> Download report
+            </a>
+          )}
+        </div>
+      )}
     </div>
-  );
-};
-
-interface SortableOptionProps {
-  id: string;
-  option: AssessmentOption;
-  rank: number;
-  questionIndex: number;
-}
-
-const SortableOption = ({ id, option, rank, questionIndex }: SortableOptionProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id,
-    data: { questionIndex },
-  });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : 'auto',
-    boxShadow: isDragging ? '0 12px 24px -8px hsl(var(--primary) / 0.25)' : undefined,
-  };
-
-  return (
-    <li
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 select-none transition-colors ${
-        isDragging
-          ? 'border-primary bg-primary/5'
-          : 'border-border bg-background hover:border-primary/40 hover:bg-muted/40'
-      }`}
-    >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
-      <span className="text-xs font-semibold text-muted-foreground w-6 shrink-0 tabular-nums">{rank}.</span>
-      <span className="text-sm text-foreground">{option.type}</span>
-    </li>
   );
 };
 
 export default ValuesAssessmentStep;
 
-/** Compute the value driver scores from the ranked answers. */
-export function computeScores(questions: AssessmentQuestion[]): Record<DriverKey, number> {
-  const scores: Record<DriverKey, number> = {
-    aesthetic: 0,
-    altruistic: 0,
-    individualistic: 0,
-    theoretical: 0,
-    economic: 0,
-    political: 0,
-    regulatory: 0,
-  };
-  questions.forEach((q) => {
-    q.options.forEach((opt, index) => {
-      const pts = RANK_POINTS[index] ?? 0;
-      scores[opt.value] += pts;
-    });
-  });
-  return scores;
+// ---------------------------------------------------------------------------
+// Backwards-compat exports.
+//
+// The legacy drag-and-drop implementation exposed `buildInitialAssessment` and
+// `computeScores`; some callers still import them. With IMX the backend owns
+// scoring, so these become no-ops that keep old imports type-safe until every
+// caller migrates.
+// ---------------------------------------------------------------------------
+
+export function buildInitialAssessment(): AssessmentQuestion[] {
+  return [];
+}
+
+export function computeScores(_questions: AssessmentQuestion[]): Record<string, number> {
+  return {};
 }

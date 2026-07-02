@@ -1,120 +1,56 @@
+## Fix IMX payloads to match FastAPI backend contract
 
-# Implementation Plan
+The current frontend calls the IMX proxy with the wrong request bodies. Reading `values.py` + `imx_service.py` shows what the backend actually expects:
 
-## 1. IMX Assessment Migration
+| Endpoint | Real payload | Response |
+|---|---|---|
+| `POST /generate_codes` | `{ prefix: "VI" \| "DI" \| "AI", count: number }` | Raw IMX response (list of generated codes; no user linkage). |
+| `POST /launch_values` | `{ code, fname, lname, email, complete_url?, lang? }` | `{ assessment_url }` |
+| `POST /launch_disc` / `/launch_ai` | same shape as launch_values (AI also accepts `ai_report`) | `{ assessment_url }` |
+| `GET /values/results/{code}` | — | Raw IMX rawscores JSON (no `completed` flag). |
+| `GET /values/report/{code}` | — | PDF stream. |
 
-### A. New API client section — `src/lib/apiClient.ts`
+Our current calls send `{ contact_id, email }` to `generate_codes` and `{ code }` to `launch_values`, both of which the backend rejects. Backend also does not persist codes per user, so the frontend must cache the generated code itself.
 
-Add a new block for the IMX proxy under a new prefix `/api/v1/values_assessment`:
+### 1. `src/lib/apiClient.ts` — rewrite the IMX section
 
-```ts
-generateAssessmentCode(contactId, email)   → POST /generate_codes    → { code, assessment_url, completed }
-launchValuesAssessment(code)               → POST /launch_values     → { assessment_url }
-launchDiscAssessment(code)                 → POST /launch_disc       (stub, for future)
-launchAiAssessment(code)                   → POST /launch_ai
-launchAdvancedInsights(code)               → POST /launch_advanced_insights
-getValuesResults(code)                     → GET  /values/results/{code}   → { completed, scores, ... }
-getValuesReport(code)                      → GET  /values/report/{code}    (PDF)
-```
+- `generateValuesCode()` → `POST /generate_codes` with `{ prefix: "VI", count: 1 }`. Return the first code from the response (handle both `[{code}]` and `{codes:[...]}` shapes defensively).
+- `launchValuesAssessment(params)` → `POST /launch_values` with `{ code, fname, lname, email, complete_url?, lang? }`. Drop the old `code`-only signature.
+- Same signature update for `launchDiscAssessment` and `launchAiAssessment` (kept for future use).
+- `getValuesResults(code)` returns raw IMX JSON. Add a helper `isValuesResultCompleted(raw)` that treats a response with any non-empty scores/dimensions as complete (and network errors / empty payloads as not complete).
+- Keep `getValuesReportUrl(code)` unchanged.
+- Remove/deprecate the `ImxCodeResponse.assessment_url` / `completed` fields since backend doesn't return them.
 
-`generate_codes` is treated as idempotent — the backend returns the existing code if the user already has one. The frontend never generates duplicates.
+### 2. `src/components/steps/ValuesAssessmentStep.tsx` — cache code + send full launch payload
 
-Assessment code is persisted per user in `localStorage` under `cb_values_assessment_code_<contactId>` as a cache; on load we still call the backend to confirm and pull `assessment_url` + completion state.
+- Accept new optional props `firstName` and `lastName` (fallback: split `email` local-part on `.`/`_`, else use `"Applicant"`/`"User"`).
+- Per-user cache key: `cb_imx_values_code_<contactId>`.
+- On mount:
+  1. Read cached code from `localStorage`. If missing → call `generateValuesCode()`, store result.
+  2. Call `launchValuesAssessment({ code, fname, lname, email })` to get `assessment_url`.
+  3. Render iframe as today.
+- On "Check Assessment Status": call `getValuesResults(code)` → use `isValuesResultCompleted()` to decide. Same 5-min / 30-s UX as today.
+- Preserve the existing 5-minute start-time key `cb_imx_start_<code>`.
+- No visual/UX changes.
 
-Keep `submitValuesAssessment`, `getAssessmentResult`, `getRoleFormulas`, `getAssessmentLink` for backwards compatibility so admin pages and legacy result page keep working.
+### 3. Wire names through from callers
 
-### B. New embedded component — `src/components/steps/ValuesAssessmentStep.tsx`
+- `src/pages/Index.tsx`: pass `firstName={values.firstName}` and `lastName={values.lastName}` to `<ValuesAssessmentStep />`.
+- `src/pages/Dashboard.tsx`: pass the applicant's first/last name from the loaded profile (fallback to empty strings; component handles fallback).
 
-Replace the current drag-and-drop UI. Preserve the outer card, title, and intro copy so the wizard/dashboard layout, spacing, and responsiveness are unchanged.
+### 4. Out of scope
 
-Props:
-```ts
-{ contactId: string; email: string; onCompleted: () => void; }
-```
+- No changes to `ComplianceStep`, `WorkSetupStep`, Azure configs, or backend code.
+- Admin `/assessment-result` page continues to use legacy endpoints untouched.
 
-State machine:
-- `loading` → fetch/generate code and `assessment_url`
-- `in_progress` → render `<iframe src={assessment_url} className="w-full h-[70vh] min-h-[520px] rounded-lg border border-border" title="Values Assessment" allow="fullscreen" />`
-- `completed` → hide iframe, show a completed state card with link to results/PDF report
+### Files touched
 
-Timer / Continue behavior:
-- Continue button is hidden during the first 5 minutes after the iframe mounts (uses a `Date.now()` start timestamp stored in `localStorage` per code so refresh preserves it).
-- After 5 min, replace with `Check Assessment Status` button.
-- Clicking calls `getValuesResults(code)`:
-  - completed → hide iframe, mark step complete, enable the wizard's normal Continue button via `onCompleted()`.
-  - not completed → toast/inline message: "Your assessment is not yet complete…", disable button and start a 30 s countdown labeled `Check Again (30s)`.
-- No polling. No auto-generation of a new code.
+- `src/lib/apiClient.ts`
+- `src/components/steps/ValuesAssessmentStep.tsx`
+- `src/pages/Index.tsx`
+- `src/pages/Dashboard.tsx`
 
-### C. Wiring changes
-
-- `src/pages/Index.tsx` (wizard): remove `buildInitialAssessment`/`computeScores`/`submitValuesAssessment` for the values step; render new `ValuesAssessmentStep` with `contactId`/`email` and gate the wizard's `Next` on `onCompleted`.
-- `src/pages/Dashboard.tsx`: same swap inside the assessment dialog. The dialog card and confirm modal stay; only inner content changes.
-- Keep `src/pages/AssessmentResult.tsx` as-is for now (it reads from the legacy endpoint and is opened from admin — out of scope of this refactor).
-
-### D. Resume & refresh behavior
-
-On mount `ValuesAssessmentStep` runs: `generateAssessmentCode(contactId, email)`. Because the backend returns the existing code + current completion state, refresh cannot create a duplicate and progress is preserved.
-
-## 2. Compliance Step — `src/components/steps/ComplianceStep.tsx`
-
-- Hide the "Are you able to submit your NBI/Police Clearance at this time?" question card once the user picks Yes/No (already tracked by `canSubmitNbiPolice`). Same for `canSubmitCoe` — collapse the gate after selection, show a small "Change answer" text link to reopen.
-- Inside the NBI section, add the reminder line:  
-  *"Please ensure that the document submitted is clear, authentic, valid, and verifiable through the official [NBI Clearance](https://verification.nbi-clearance.io/) verification portal prior to uploading."*  
-  Below it add a `See example of document` button that opens a modal showing `nbi-sample.png`.
-- Inside the Police Clearance section, add the equivalent line pointing to `https://pnpclearance.ph/` and a `See example of document` button opening a modal showing `police-sample.png`.
-- Remove the duplicated portal paragraphs from the top "We Prioritize the Prepared" info card so they only appear inline in each section.
-
-### Sample images
-Copy the two uploaded photos into `src/assets/`:
-- `src/assets/nbi-sample.png` ← `user-uploads://NBI.png`
-- `src/assets/police-sample.png` ← `user-uploads://Police.png`
-
-Add a small `SampleDocumentModal` (reusing shadcn `Dialog`) that takes `{ open, onOpenChange, src, title }`.
-
-## 3. Work Setup Step — `src/components/steps/WorkSetupStep.tsx`
-
-- Remove the `network` tab and the `TABS` array; render Device Specification content directly (no tab bar).
-- Remove the `tryAdvance` tab-switch logic from the imperative handle — `tryAdvance` simply returns `true`. Keep the exported handle so `Index.tsx` doesn't need changes.
-- Move the four internet fields (Primary Internet Provider*, Primary ISP Speedtest*, Secondary Internet Provider, Secondary ISP Speedtest) into the single Device Specification view, appended after the existing device fields, wrapped in the same styling.
-- Update the "Required Items" list copy to:
-  - Primary Internet Provider (*)
-  - Primary ISP Speedtest shareable link (*)
-  - Secondary/Back up Internet Provider
-  - Secondary/Back up ISP Speedtest shareable link
-
-Field names (`primaryISP`, `secondaryISP`, `primaryISPSpeedtest`, `secondaryISPSpeedtest`) stay the same so the API payload / backend contract is unchanged.
-
-## 4. Azure SPA Refresh Fix
-
-Add both configs so it works regardless of which Azure hosting is used:
-
-- **`public/staticwebapp.config.json`** (Azure Static Web Apps):
-  ```json
-  {
-    "navigationFallback": {
-      "rewrite": "/index.html",
-      "exclude": ["/assets/*", "/*.{js,css,png,jpg,jpeg,svg,ico,webp,woff,woff2,map,json,txt}"]
-    },
-    "mimeTypes": { ".json": "application/json" }
-  }
-  ```
-- **`public/web.config`** (Azure App Service / IIS): URL Rewrite rule sending all non-file, non-directory requests to `/index.html`.
-
-Both files are shipped from `public/` so Vite copies them to `dist/` on build.
-
-## 5. Verification
+### Verification
 
 - `tsgo --noEmit`
-- Playwright: load wizard, open Values step, confirm iframe renders, Continue is hidden < 5 min, becomes "Check Assessment Status" after (test with a shortened threshold via env in dev only if needed — production stays 5 min).
-- Visual check of compliance modals and simplified Work Setup step.
-
-## Files touched
-
-- `src/lib/apiClient.ts` (add IMX section)
-- `src/components/steps/ValuesAssessmentStep.tsx` (rewritten)
-- `src/components/steps/ComplianceStep.tsx`
-- `src/components/steps/WorkSetupStep.tsx`
-- `src/pages/Index.tsx`, `src/pages/Dashboard.tsx` (wiring)
-- New: `src/components/common/SampleDocumentModal.tsx`
-- New assets: `src/assets/nbi-sample.png`, `src/assets/police-sample.png`
-- New: `public/staticwebapp.config.json`, `public/web.config`
+- Manual: open Values step → network tab shows `generate_codes` with `{prefix:"VI",count:1}` and `launch_values` with full payload; iframe loads; refresh reuses cached code (no second `generate_codes` call).

@@ -717,7 +717,7 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
           </DialogHeader>
           <ValuesAssessmentStep
             contactId={contactId ?? ''}
-            email={profile.email}
+            email={undefined}
             firstName={profile.firstName}
             lastName={profile.lastName}
             onCompleted={() => setAssessmentDone(true)}

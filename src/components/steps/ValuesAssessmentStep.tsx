@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, CheckCircle2, Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  generateAssessmentCode,
+  generateValuesCode,
   launchValuesAssessment,
   getValuesResults,
   getValuesReportUrl,
+  isValuesResultCompleted,
 } from '@/lib/apiClient';
 import type { AssessmentQuestion } from '@/data/valuesAssessment';
 
@@ -13,9 +14,9 @@ import type { AssessmentQuestion } from '@/data/valuesAssessment';
  * IMX (InnerMetrix) Values Assessment — embedded via iframe.
  *
  * All traffic goes through the FastAPI backend; the browser never talks to
- * IMX directly. The backend keeps assessment codes idempotent per user, so
- * refreshing the page reuses the existing code instead of generating a new
- * one and never restarts the assessment.
+ * IMX directly. The backend `/generate_codes` endpoint does NOT persist per-
+ * user linkage, so we cache the generated code in `localStorage` keyed by
+ * `contactId` and reuse it on refresh instead of generating a new one.
  */
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
@@ -26,13 +27,45 @@ type Phase = 'loading' | 'error' | 'in_progress' | 'completed';
 interface ValuesAssessmentStepProps {
   contactId?: string;
   email?: string;
+  firstName?: string;
+  lastName?: string;
   /** Called when the backend confirms the assessment is completed. */
   onCompleted?: () => void;
 }
 
+const codeCacheKey = (contactId: string) => `cb_imx_values_code_${contactId}`;
 const startTimeKey = (code: string) => `cb_imx_start_${code}`;
 
-const ValuesAssessmentStep = ({ contactId, email, onCompleted }: ValuesAssessmentStepProps) => {
+const readCachedCode = (contactId: string): string => {
+  try {
+    return localStorage.getItem(codeCacheKey(contactId)) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const writeCachedCode = (contactId: string, code: string) => {
+  try {
+    localStorage.setItem(codeCacheKey(contactId), code);
+  } catch { /* ignore */ }
+};
+
+/** Derive fname/lname from an email local-part when the caller didn't pass names. */
+const deriveNames = (email?: string): { fname: string; lname: string } => {
+  const local = (email ?? '').split('@')[0] ?? '';
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  const fname = parts[0] ? parts[0][0].toUpperCase() + parts[0].slice(1) : 'Applicant';
+  const lname = parts[1] ? parts[1][0].toUpperCase() + parts[1].slice(1) : 'User';
+  return { fname, lname };
+};
+
+const ValuesAssessmentStep = ({
+  contactId,
+  email,
+  firstName,
+  lastName,
+  onCompleted,
+}: ValuesAssessmentStepProps) => {
   const [phase, setPhase] = useState<Phase>('loading');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [code, setCode] = useState<string>('');
@@ -50,7 +83,6 @@ const ValuesAssessmentStep = ({ contactId, email, onCompleted }: ValuesAssessmen
     onCompleted?.();
   }, [onCompleted]);
 
-  // Load / resume — idempotent generate + launch.
   useEffect(() => {
     if (!contactId) {
       setPhase('error');
@@ -58,45 +90,62 @@ const ValuesAssessmentStep = ({ contactId, email, onCompleted }: ValuesAssessmen
       return;
     }
     let cancelled = false;
+    let timerId: number | undefined;
+
     (async () => {
       try {
         setPhase('loading');
-        const codeRes = await generateAssessmentCode(contactId, email);
-        if (cancelled) return;
-        setCode(codeRes.code);
 
-        if (codeRes.completed) {
-          setReportUrl(getValuesReportUrl(codeRes.code));
-          setPhase('completed');
-          notifyCompleted();
-          return;
-        }
-
-        // Launch (or resume) the values assessment.
-        let launchUrl = codeRes.assessment_url ?? '';
-        if (!launchUrl) {
-          const launch = await launchValuesAssessment(codeRes.code);
+        // 1. Reuse or generate the values code, cached per user.
+        let currentCode = readCachedCode(contactId);
+        if (!currentCode) {
+          currentCode = await generateValuesCode();
           if (cancelled) return;
-          launchUrl = launch.assessment_url;
+          writeCachedCode(contactId, currentCode);
         }
-        setAssessmentUrl(launchUrl);
+        setCode(currentCode);
 
-        // Persist / restore the launch timestamp so the 5-min window survives refresh.
+        // 2. Optimistically check if the assessment is already completed
+        //    (e.g. user came back after finishing in another tab).
+        try {
+          const existing = await getValuesResults(currentCode);
+          if (cancelled) return;
+          if (isValuesResultCompleted(existing)) {
+            setReportUrl(getValuesReportUrl(currentCode));
+            setPhase('completed');
+            notifyCompleted();
+            return;
+          }
+        } catch { /* not yet started — continue */ }
+
+        // 3. Launch (or resume) the values assessment.
+        const derived = deriveNames(email);
+        const fname = (firstName && firstName.trim()) || derived.fname;
+        const lname = (lastName && lastName.trim()) || derived.lname;
+        const launch = await launchValuesAssessment({
+          code: currentCode,
+          fname,
+          lname,
+          email: email ?? '',
+        });
+        if (cancelled) return;
+        setAssessmentUrl(launch.assessment_url);
+
+        // 4. Persist the launch timestamp so the 5-min window survives refresh.
         let startedAt = 0;
         try {
-          const raw = localStorage.getItem(startTimeKey(codeRes.code));
+          const raw = localStorage.getItem(startTimeKey(currentCode));
           startedAt = raw ? Number(raw) : 0;
         } catch { /* ignore */ }
         if (!startedAt || Number.isNaN(startedAt)) {
           startedAt = Date.now();
-          try { localStorage.setItem(startTimeKey(codeRes.code), String(startedAt)); } catch { /* ignore */ }
+          try { localStorage.setItem(startTimeKey(currentCode), String(startedAt)); } catch { /* ignore */ }
         }
         const elapsed = Date.now() - startedAt;
         if (elapsed >= FIVE_MINUTES_MS) {
           setElapsedReady(true);
         } else {
-          const t = window.setTimeout(() => setElapsedReady(true), FIVE_MINUTES_MS - elapsed);
-          return () => window.clearTimeout(t);
+          timerId = window.setTimeout(() => setElapsedReady(true), FIVE_MINUTES_MS - elapsed);
         }
         setPhase('in_progress');
       } catch (e) {
@@ -105,15 +154,13 @@ const ValuesAssessmentStep = ({ contactId, email, onCompleted }: ValuesAssessmen
         setErrorMsg(e instanceof Error ? e.message : 'Failed to load the assessment.');
       }
     })();
-    return () => { cancelled = true; };
-  }, [contactId, email, notifyCompleted]);
 
-  // Ensure phase flips to in_progress once we have the url (async race guard).
-  useEffect(() => {
-    if (assessmentUrl && phase === 'loading') setPhase('in_progress');
-  }, [assessmentUrl, phase]);
+    return () => {
+      cancelled = true;
+      if (timerId !== undefined) window.clearTimeout(timerId);
+    };
+  }, [contactId, email, firstName, lastName, notifyCompleted]);
 
-  // Cooldown ticker for the Check Status button.
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = window.setInterval(() => setCooldown((c) => (c > 0 ? c - 1 : 0)), 1000);
@@ -126,8 +173,8 @@ const ValuesAssessmentStep = ({ contactId, email, onCompleted }: ValuesAssessmen
     setNotCompleteMsg('');
     try {
       const res = await getValuesResults(code);
-      if (res.completed) {
-        setReportUrl(res.report_url || getValuesReportUrl(code));
+      if (isValuesResultCompleted(res)) {
+        setReportUrl(getValuesReportUrl(code));
         setPhase('completed');
         notifyCompleted();
         toast.success('Assessment completed. You may continue.');
@@ -241,12 +288,8 @@ const ValuesAssessmentStep = ({ contactId, email, onCompleted }: ValuesAssessmen
 export default ValuesAssessmentStep;
 
 // ---------------------------------------------------------------------------
-// Backwards-compat exports.
-//
-// The legacy drag-and-drop implementation exposed `buildInitialAssessment` and
-// `computeScores`; some callers still import them. With IMX the backend owns
-// scoring, so these become no-ops that keep old imports type-safe until every
-// caller migrates.
+// Backwards-compat exports for the legacy drag-and-drop callers. IMX owns
+// scoring now, so these are no-ops kept only for type-safe imports.
 // ---------------------------------------------------------------------------
 
 export function buildInitialAssessment(): AssessmentQuestion[] {

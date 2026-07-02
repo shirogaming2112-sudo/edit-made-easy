@@ -694,66 +694,98 @@ async function imxRequest<T>(path: string, init: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-export interface ImxCodeResponse {
-  code: string;
-  assessment_url?: string;
-  completed?: boolean;
-}
-
 export interface ImxLaunchResponse {
   assessment_url: string;
-  code?: string;
 }
 
-export interface ImxResultsResponse {
-  completed: boolean;
-  code?: string;
-  scores?: Record<string, number>;
-  result?: string;
-  report_url?: string;
-  [k: string]: unknown;
+export interface ImxLaunchParams {
+  code: string;
+  fname: string;
+  lname: string;
+  email: string;
+  complete_url?: string;
+  lang?: string;
 }
 
-/** Generate — or reuse — the assessment code for this user. Idempotent. */
-export function generateAssessmentCode(contactId: string, email?: string) {
-  return imxRequest<ImxCodeResponse>('/generate_codes', {
+/**
+ * Generate IMX assessment codes. Backend proxies IMX's `/generate_code/` which
+ * returns freshly-minted codes but does NOT associate them with a user — the
+ * frontend must cache the returned code per user in localStorage.
+ *
+ * Prefixes: `"VI"` = Values, `"DI"` = DISC, `"AI"` = Attribute Index.
+ */
+export async function generateAssessmentCodes(
+  prefix: 'VI' | 'DI' | 'AI',
+  count = 1,
+): Promise<string[]> {
+  const raw = await imxRequest<unknown>('/generate_codes', {
     method: 'POST',
-    body: JSON.stringify({ contact_id: contactId, email: email ?? '' }),
+    body: JSON.stringify({ prefix, count }),
   });
+  const list: unknown[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { codes?: unknown[] })?.codes)
+      ? (raw as { codes: unknown[] }).codes
+      : Array.isArray((raw as { data?: unknown[] })?.data)
+        ? (raw as { data: unknown[] }).data
+        : [];
+  const codes = list
+    .map((item) => (typeof item === 'string' ? item : (item as { code?: string })?.code))
+    .filter((c): c is string => typeof c === 'string' && c.length > 0);
+  if (codes.length === 0) {
+    throw new Error('IMX did not return any assessment codes.');
+  }
+  return codes;
 }
 
-export function launchValuesAssessment(code: string) {
+export async function generateValuesCode(): Promise<string> {
+  const [code] = await generateAssessmentCodes('VI', 1);
+  return code;
+}
+
+export function launchValuesAssessment(params: ImxLaunchParams) {
   return imxRequest<ImxLaunchResponse>('/launch_values', {
     method: 'POST',
-    body: JSON.stringify({ code }),
+    body: JSON.stringify(params),
   });
 }
 
-export function launchDiscAssessment(code: string) {
+export function launchDiscAssessment(params: ImxLaunchParams) {
   return imxRequest<ImxLaunchResponse>('/launch_disc', {
     method: 'POST',
-    body: JSON.stringify({ code }),
+    body: JSON.stringify(params),
   });
 }
 
-export function launchAiAssessment(code: string) {
+export function launchAiAssessment(params: ImxLaunchParams & { ai_report?: number }) {
   return imxRequest<ImxLaunchResponse>('/launch_ai', {
     method: 'POST',
-    body: JSON.stringify({ code }),
-  });
-}
-
-export function launchAdvancedInsights(code: string) {
-  return imxRequest<ImxLaunchResponse>('/launch_advanced_insights', {
-    method: 'POST',
-    body: JSON.stringify({ code }),
+    body: JSON.stringify(params),
   });
 }
 
 export function getValuesResults(code: string) {
-  return imxRequest<ImxResultsResponse>(`/values/results/${encodeURIComponent(code)}`, {
+  return imxRequest<unknown>(`/values/results/${encodeURIComponent(code)}`, {
     method: 'GET',
   });
+}
+
+/**
+ * IMX's rawscores endpoint has no explicit `completed` flag; when the taker
+ * hasn't finished, it typically returns an empty object or empty arrays. Treat
+ * any response with at least one numeric score / non-empty result bucket as
+ * complete.
+ */
+export function isValuesResultCompleted(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const r = raw as Record<string, unknown>;
+  if (r.completed === true) return true;
+  const buckets: unknown[] = [r.scores, r.rawscores, r.raw_scores, r.dimensions, r.results, r.data];
+  for (const b of buckets) {
+    if (Array.isArray(b) && b.length > 0) return true;
+    if (b && typeof b === 'object' && Object.keys(b as object).length > 0) return true;
+  }
+  return Object.values(r).some((v) => typeof v === 'number');
 }
 
 export function getValuesReportUrl(code: string): string {

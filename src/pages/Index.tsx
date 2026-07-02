@@ -442,6 +442,8 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               <ValuesAssessmentStep
                 contactId={loadContactId() ?? ''}
                 email={values.email}
+                firstName={values.personalInfo.firstName}
+                lastName={values.personalInfo.lastName}
                 onCompleted={() => setAssessmentCompleted(true)}
               />
             )}

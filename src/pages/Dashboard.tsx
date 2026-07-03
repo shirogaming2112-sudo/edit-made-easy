@@ -714,14 +714,15 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
       <Dialog open={assessmentOpen} onOpenChange={(o) => { if (!submittingAssessment) setAssessmentOpen(o); }}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Values Assessment</DialogTitle>
+            <DialogTitle>Assessment</DialogTitle>
             <DialogDescription>
-              Please complete the embedded Values Assessment below to continue with your reapplication.
+              Please complete the embedded Values and DISC assessments below to continue with your reapplication.
             </DialogDescription>
           </DialogHeader>
-          <ValuesAssessmentStep
+          <AssessmentStep
+            ref={assessmentRef}
             contactId={contactId ?? ''}
-            email={undefined}
+            email={profile.valueProposition ? undefined : undefined}
             firstName={profile.firstName}
             lastName={profile.lastName}
             onCompleted={() => setAssessmentDone(true)}
@@ -737,22 +738,39 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (!assessmentDone) {
-                  toast.error('Please complete the assessment before continuing.');
-                  return;
+              onClick={async () => {
+                if (!assessmentRef.current || assessmentChecking || assessmentCooldown > 0) return;
+                setAssessmentChecking(true);
+                try {
+                  const result = await assessmentRef.current.checkAndAdvance();
+                  if (result === 'advance') {
+                    setAssessmentDone(true);
+                    setAssessmentOpen(false);
+                    setAssessmentConfirmOpen(true);
+                  } else if (result === 'stay') {
+                    toast.info('Values complete — please finish the DISC assessment.');
+                  } else {
+                    setAssessmentCooldown(30);
+                    toast.info('Your assessment is not yet complete. You can try again shortly.');
+                  }
+                } finally {
+                  setAssessmentChecking(false);
                 }
-                setAssessmentOpen(false);
-                setAssessmentConfirmOpen(true);
               }}
-              disabled={submittingAssessment || !assessmentDone}
+              disabled={submittingAssessment || assessmentCooldown > 0}
               className="btn-primary inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Continue
+              {(assessmentChecking || assessmentCooldown > 0) && <Loader2 className="w-4 h-4 animate-spin" />}
+              {assessmentChecking
+                ? 'Checking…'
+                : assessmentCooldown > 0
+                  ? `Try again in ${assessmentCooldown}s`
+                  : 'Continue'}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
 
       <Dialog open={assessmentConfirmOpen} onOpenChange={setAssessmentConfirmOpen}>

@@ -1,8 +1,10 @@
 import { useState, forwardRef, useImperativeHandle } from 'react';
 import FileDropzone from '@/components/wizard/FileDropzone';
 import RequiredLabel from '@/components/wizard/RequiredLabel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Cpu, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+
 
 
 

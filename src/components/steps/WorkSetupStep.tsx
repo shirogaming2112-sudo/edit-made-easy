@@ -218,9 +218,14 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </p>
       </div>
 
-      {/* Device Specification */}
-      {(
-        <div className="space-y-6 animate-fade-in">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'device' | 'isp')} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="device">Device Specification</TabsTrigger>
+          <TabsTrigger value="isp">ISP Setup</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="device" className="space-y-6 animate-fade-in mt-0">
+
 
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
             <div>

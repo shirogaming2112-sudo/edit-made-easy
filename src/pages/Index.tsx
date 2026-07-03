@@ -491,7 +491,8 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               />
             )}
             {currentSubStep === 12 && (
-              <ValuesAssessmentStep
+              <AssessmentStep
+                ref={assessmentRef}
                 contactId={loadContactId() ?? ''}
                 email={values.email}
                 firstName={values.personalInfo.firstName}
@@ -507,7 +508,10 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               isFirst={currentSubStep === 1}
               isLast={currentSubStep === TOTAL_SUBSTEPS}
               isSubmitting={submitting}
+              cooldownSeconds={currentSubStep === 12 ? assessmentCooldown : 0}
+              checkingLabel={currentSubStep === 12 && submitting ? 'Checking…' : undefined}
             />
+
           </div>
 
           <div className="mt-6 flex justify-start">

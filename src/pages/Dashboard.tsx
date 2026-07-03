@@ -170,6 +170,14 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
 
   useEffect(() => { setEditing(false); }, [activeSection]);
 
+  useEffect(() => {
+    if (assessmentCooldown <= 0) return;
+    const t = window.setInterval(() => setAssessmentCooldown((c) => (c > 0 ? c - 1 : 0)), 1000);
+    return () => window.clearInterval(t);
+  }, [assessmentCooldown]);
+
+
+
   // Load dashboard data on mount.
   useEffect(() => {
     if (!contactId) return;

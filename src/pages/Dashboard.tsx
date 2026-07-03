@@ -29,6 +29,7 @@ import {
   updateValueProposition, updatePortfolio,
   reapply, todayMDT, extractReferralCode,
   submitAttendance, type AttendanceAvailability,
+  saveApplicantIdentity,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
 

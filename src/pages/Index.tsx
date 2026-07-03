@@ -181,6 +181,7 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
   const sidebarStep = SUBSTEP_TO_SIDEBAR[currentSubStep] || 1;
 
   const workSetupRef = useRef<WorkSetupStepHandle>(null);
+  const assessmentRef = useRef<AssessmentStepHandle>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

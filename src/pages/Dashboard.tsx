@@ -282,6 +282,12 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
         const daRaw = (d as { date_applied?: string }).date_applied;
         const daCustom = (d.custom_fields_raw || []).find((f) => f.id === 'A0IfC6bqqoM4Kv98HTYb')?.value;
         setDateApplied(daRaw || daCustom || '');
+        // Cache identity so the Assessment step can launch IMX with real names.
+        saveApplicantIdentity({
+          email: d.email || '',
+          firstName: pi.first_name || '',
+          lastName: pi.last_name || '',
+        });
       } catch (err) {
         console.warn('getDashboard failed', err);
       }

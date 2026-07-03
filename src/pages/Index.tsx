@@ -78,7 +78,7 @@ const SUBSTEP_TITLES: Record<number, string> = {
   9: 'Value Proposition',
   10: 'Work Setup',
   11: 'Compliance',
-  12: 'Values Assessment',
+  12: 'Assessment',
 };
 
 const TOTAL_SUBSTEPS = 12;

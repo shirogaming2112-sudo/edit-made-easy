@@ -446,8 +446,10 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
             onChange={(e) => update('secondaryISPSpeedtest' as keyof WorkSetupData, e.target.value as never)}
           />
         </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
+
   );
 });
 

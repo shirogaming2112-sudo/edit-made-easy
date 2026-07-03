@@ -819,7 +819,7 @@ export function getValuesResults(code: string) {
  * any response with at least one numeric score / non-empty result bucket as
  * complete.
  */
-export function isValuesResultCompleted(raw: unknown): boolean {
+function isImxResultCompleted(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return false;
   const r = raw as Record<string, unknown>;
   if (r.completed === true) return true;
@@ -831,7 +831,28 @@ export function isValuesResultCompleted(raw: unknown): boolean {
   return Object.values(r).some((v) => typeof v === 'number');
 }
 
+export const isValuesResultCompleted = isImxResultCompleted;
+export const isDiscResultCompleted = isImxResultCompleted;
+
 export function getValuesReportUrl(code: string): string {
   return imxUrl(`/values/report/${encodeURIComponent(code)}`);
 }
+
+// ------------------------ DISC ------------------------
+
+export async function generateDiscCode(): Promise<string> {
+  const [code] = await generateAssessmentCodes('DI', 1);
+  return code;
+}
+
+export function getDiscResults(code: string) {
+  return imxRequest<unknown>(`/disc/results/${encodeURIComponent(code)}`, {
+    method: 'GET',
+  });
+}
+
+export function getDiscReportUrl(code: string): string {
+  return imxUrl(`/disc/report/${encodeURIComponent(code)}`);
+}
+
 

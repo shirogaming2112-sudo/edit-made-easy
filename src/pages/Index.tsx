@@ -117,6 +117,7 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
     persisted?.completedSidebarSteps ?? [],
   );
   const [assessmentCompleted, setAssessmentCompleted] = useState(false);
+  const [assessmentCooldown, setAssessmentCooldown] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [showIntroModal, setShowIntroModal] = useState(false);
 

@@ -386,11 +386,10 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
             </div>
           </div>
 
-        </div>
-      )}
+        </TabsContent>
 
-      {/* Internet / ISP details — merged into the single Device Specification view */}
-      <div className="space-y-4 animate-fade-in mt-6">
+        <TabsContent value="isp" className="space-y-4 animate-fade-in mt-0">
+
         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
           <p className="font-semibold text-foreground">Network Requirements</p>
           <p>10 Mbps DSL/Fiber Internet connection (USB sticks, signal-based &amp; wireless connections are not allowed).</p>

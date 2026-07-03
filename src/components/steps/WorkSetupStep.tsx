@@ -175,11 +175,19 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
   const [internal, setInternal] = useState<WorkSetupData>(emptyWorkSetup);
   const [detecting, setDetecting] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [tab, setTab] = useState<'device' | 'isp'>('device');
   const value = data ?? internal;
 
   useImperativeHandle(ref, () => ({
-    tryAdvance: () => true,
-  }), []);
+    tryAdvance: () => {
+      if (tab === 'device') {
+        setTab('isp');
+        return false;
+      }
+      return true;
+    },
+  }), [tab]);
+
 
   const update = <K extends keyof WorkSetupData>(field: K, v: WorkSetupData[K]) => {
     const next = { ...value, [field]: v };

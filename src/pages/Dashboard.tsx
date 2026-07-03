@@ -136,7 +136,10 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const [reapplying, setReapplying] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [assessmentDone, setAssessmentDone] = useState(false);
-  const submittingAssessment = false;
+  const [assessmentCooldown, setAssessmentCooldown] = useState(0);
+  const [assessmentChecking, setAssessmentChecking] = useState(false);
+  const submittingAssessment = assessmentChecking;
+  const assessmentRef = useRef<AssessmentStepHandle>(null);
   const [assessmentConfirmOpen, setAssessmentConfirmOpen] = useState(false);
 
 

@@ -189,6 +189,26 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { /* ignore */ }
   }, [currentSubStep]);
 
+  // Assessment "Try again in Ns" countdown.
+  useEffect(() => {
+    if (assessmentCooldown <= 0) return;
+    const t = window.setInterval(() => {
+      setAssessmentCooldown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [assessmentCooldown]);
+
+  // Keep applicant identity in session storage so the Assessment step can
+  // always populate fname/lname/email on IMX launch.
+  useEffect(() => {
+    if (!values.email && !values.personalInfo.firstName && !values.personalInfo.lastName) return;
+    saveApplicantIdentity({
+      email: values.email,
+      firstName: values.personalInfo.firstName,
+      lastName: values.personalInfo.lastName,
+    });
+  }, [values.email, values.personalInfo.firstName, values.personalInfo.lastName]);
+
   const handleNext = async () => {
     if (currentSubStep === 10 && workSetupRef.current && !workSetupRef.current.tryAdvance()) {
       return;
@@ -199,16 +219,44 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
     // Persist this substep to the FastAPI backend before advancing.
     const contactId = loadContactId();
     if (currentSubStep === 12) {
-      // IMX Values Assessment — the backend is the source of truth. The step
-      // component signals completion via `onCompleted`; block Next until then.
-      if (!assessmentCompleted) {
-        toast.error('Please complete the assessment before continuing.');
-        return;
+      // Assessment step — Next button asks the step whether IMX has results
+      // yet. If not, start a 30s cooldown before allowing another attempt.
+      if (!assessmentRef.current) return;
+      if (assessmentCooldown > 0 || submitting) return;
+      setSubmitting(true);
+      try {
+        const result = await assessmentRef.current.checkAndAdvance();
+        if (result === 'stay') {
+          // Moved from Values → DISC internally; wizard stays on step 12.
+          return;
+        }
+        if (result === 'advance') {
+          setAssessmentCompleted(true);
+          // fall through to sidebar / submit logic below
+        } else if (result === 'incomplete') {
+          setAssessmentCooldown(30);
+          toast.info('Your assessment is not yet complete. You can try again shortly.');
+          return;
+        } else {
+          setAssessmentCooldown(30);
+          toast.error('Could not verify assessment status. Try again shortly.');
+          return;
+        }
+      } finally {
+        setSubmitting(false);
       }
     } else if (contactId) {
       try {
         setSubmitting(true);
         await submitSubstep(contactId, currentSubStep, values, referrer);
+        if (currentSubStep === 1) {
+          // Persist identity immediately after Personal Info saves.
+          saveApplicantIdentity({
+            email: values.email,
+            firstName: values.personalInfo.firstName,
+            lastName: values.personalInfo.lastName,
+          });
+        }
         // /finish marks the application as completed — fire it as soon as
         // the Work Setup step (substep 10) is saved so the wizard end no
         // longer needs a global submit endpoint.
@@ -238,6 +286,7 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
       setCurrentSubStep((s) => s + 1);
     }
   };
+
 
   const handlePrevious = () => {
     if (currentSubStep > 1) setCurrentSubStep((s) => s - 1);

@@ -607,6 +607,49 @@ export function clearContactId() {
   try { localStorage.removeItem(CONTACT_ID_KEY); } catch { /* ignore */ }
 }
 
+// ------------------------ APPLICANT IDENTITY (session) ------------------------
+//
+// Cached in sessionStorage so the IMX assessment step can always populate
+// `fname`, `lname`, `email` on `launch_values` / `launch_disc` without asking
+// the user again. Populated by the wizard (after Personal Info) and the
+// dashboard (after the profile fetch).
+export const APPLICANT_IDENTITY_KEY = 'cb_applicant_identity';
+
+export interface ApplicantIdentity {
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
+export function saveApplicantIdentity(id: Partial<ApplicantIdentity>) {
+  try {
+    const prev = loadApplicantIdentity() ?? { email: '', firstName: '', lastName: '' };
+    const next: ApplicantIdentity = {
+      email: id.email ?? prev.email ?? '',
+      firstName: id.firstName ?? prev.firstName ?? '',
+      lastName: id.lastName ?? prev.lastName ?? '',
+    };
+    sessionStorage.setItem(APPLICANT_IDENTITY_KEY, JSON.stringify(next));
+  } catch { /* ignore */ }
+}
+
+export function loadApplicantIdentity(): ApplicantIdentity | null {
+  try {
+    const raw = sessionStorage.getItem(APPLICANT_IDENTITY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ApplicantIdentity>;
+    return {
+      email: parsed.email ?? '',
+      firstName: parsed.firstName ?? '',
+      lastName: parsed.lastName ?? '',
+    };
+  } catch { return null; }
+}
+
+export function clearApplicantIdentity() {
+  try { sessionStorage.removeItem(APPLICANT_IDENTITY_KEY); } catch { /* ignore */ }
+}
+
 /** Submit the per-substep payload that matches the backend contract. */
 export async function submitSubstep(
   contactId: string,

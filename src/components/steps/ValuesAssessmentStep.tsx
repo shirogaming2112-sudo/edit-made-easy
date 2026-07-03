@@ -1,56 +1,64 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, CheckCircle2, Download, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import {
   generateValuesCode,
+  generateDiscCode,
   launchValuesAssessment,
+  launchDiscAssessment,
   getValuesResults,
-  getValuesReportUrl,
+  getDiscResults,
   isValuesResultCompleted,
+  isDiscResultCompleted,
+  loadApplicantIdentity,
 } from '@/lib/apiClient';
 import type { AssessmentQuestion } from '@/data/valuesAssessment';
 
 /**
- * IMX (InnerMetrix) Values Assessment — embedded via iframe.
+ * IMX (InnerMetrix) Assessment step — embeds Values then DISC via iframe.
  *
- * All traffic goes through the FastAPI backend; the browser never talks to
- * IMX directly. The backend `/generate_codes` endpoint does NOT persist per-
- * user linkage, so we cache the generated code in `localStorage` keyed by
- * `contactId` and reuse it on refresh instead of generating a new one.
+ * All traffic goes through the FastAPI backend. Codes are cached in
+ * `localStorage` per-user so refresh reuses the same assessment. The Download
+ * PDF button is intentionally NOT shown here — that's admin-only.
  */
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
-const CHECK_COOLDOWN_S = 30;
+type Phase = 'loading' | 'error' | 'values' | 'disc' | 'completed';
 
-type Phase = 'loading' | 'error' | 'in_progress' | 'completed';
+export interface AssessmentStepHandle {
+  /**
+   * Ask the current phase whether it's complete.
+   * - Returns `'advance'` when the wizard/dashboard should move on
+   *   (values→disc transitions are handled internally as `'stay'`).
+   * - Returns `'stay'` when we handled the transition ourselves.
+   * - Returns `'incomplete'` when the underlying IMX result is not yet ready.
+   * - Returns `'error'` on network failure.
+   */
+  checkAndAdvance: () => Promise<'advance' | 'stay' | 'incomplete' | 'error'>;
+  /** True when both Values and DISC are done. */
+  isFullyComplete: () => boolean;
+}
 
-interface ValuesAssessmentStepProps {
+interface AssessmentStepProps {
   contactId?: string;
   email?: string;
   firstName?: string;
   lastName?: string;
-  /** Called when the backend confirms the assessment is completed. */
+  /** Called when both Values and DISC are confirmed complete. */
   onCompleted?: () => void;
 }
 
-const codeCacheKey = (contactId: string) => `cb_imx_values_code_${contactId}`;
-const startTimeKey = (code: string) => `cb_imx_start_${code}`;
+const codeCacheKey = (kind: 'values' | 'disc', contactId: string) =>
+  `cb_imx_${kind}_code_${contactId}`;
+const doneCacheKey = (kind: 'values' | 'disc', contactId: string) =>
+  `cb_imx_${kind}_done_${contactId}`;
 
-const readCachedCode = (contactId: string): string => {
-  try {
-    return localStorage.getItem(codeCacheKey(contactId)) ?? '';
-  } catch {
-    return '';
-  }
+const readCached = (key: string): string => {
+  try { return localStorage.getItem(key) ?? ''; } catch { return ''; }
+};
+const writeCached = (key: string, val: string) => {
+  try { localStorage.setItem(key, val); } catch { /* ignore */ }
 };
 
-const writeCachedCode = (contactId: string, code: string) => {
-  try {
-    localStorage.setItem(codeCacheKey(contactId), code);
-  } catch { /* ignore */ }
-};
-
-/** Derive fname/lname from an email local-part when the caller didn't pass names. */
+/** Derive fname/lname from an email local-part as a last-resort fallback. */
 const deriveNames = (email?: string): { fname: string; lname: string } => {
   const local = (email ?? '').split('@')[0] ?? '';
   const parts = local.split(/[._-]+/).filter(Boolean);
@@ -59,22 +67,21 @@ const deriveNames = (email?: string): { fname: string; lname: string } => {
   return { fname, lname };
 };
 
-const ValuesAssessmentStep = ({
+const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
   contactId,
   email,
   firstName,
   lastName,
   onCompleted,
-}: ValuesAssessmentStepProps) => {
+}, ref) => {
   const [phase, setPhase] = useState<Phase>('loading');
   const [errorMsg, setErrorMsg] = useState<string>('');
-  const [code, setCode] = useState<string>('');
-  const [assessmentUrl, setAssessmentUrl] = useState<string>('');
-  const [reportUrl, setReportUrl] = useState<string>('');
-  const [elapsedReady, setElapsedReady] = useState<boolean>(false);
-  const [checking, setChecking] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const [notCompleteMsg, setNotCompleteMsg] = useState<string>('');
+  const [valuesCode, setValuesCode] = useState<string>('');
+  const [discCode, setDiscCode] = useState<string>('');
+  const [valuesUrl, setValuesUrl] = useState<string>('');
+  const [discUrl, setDiscUrl] = useState<string>('');
+  const [valuesDone, setValuesDone] = useState(false);
+  const [discDone, setDiscDone] = useState(false);
   const completedNotifiedRef = useRef(false);
 
   const notifyCompleted = useCallback(() => {
@@ -83,6 +90,24 @@ const ValuesAssessmentStep = ({
     onCompleted?.();
   }, [onCompleted]);
 
+  /** Resolve fname/lname/email from props → session → derivation. */
+  const resolveIdentity = useCallback(() => {
+    const stored = loadApplicantIdentity();
+    const resolvedEmail =
+      (email && email.trim()) || (stored?.email ?? '') || '';
+    const resolvedFirst =
+      (firstName && firstName.trim()) || (stored?.firstName ?? '') || '';
+    const resolvedLast =
+      (lastName && lastName.trim()) || (stored?.lastName ?? '') || '';
+    const derived = deriveNames(resolvedEmail);
+    return {
+      fname: resolvedFirst || derived.fname,
+      lname: resolvedLast || derived.lname,
+      email: resolvedEmail,
+    };
+  }, [email, firstName, lastName]);
+
+  // Bootstrap: figure out where we are (values / disc / completed).
   useEffect(() => {
     if (!contactId) {
       setPhase('error');
@@ -90,64 +115,91 @@ const ValuesAssessmentStep = ({
       return;
     }
     let cancelled = false;
-    let timerId: number | undefined;
 
     (async () => {
       try {
         setPhase('loading');
+        const identity = resolveIdentity();
 
-        // 1. Reuse or generate the values code, cached per user.
-        let currentCode = readCachedCode(contactId);
-        if (!currentCode) {
-          currentCode = await generateValuesCode();
+        // Read cached done flags first so refreshes skip finished sub-tests.
+        const cachedValuesDone = readCached(doneCacheKey('values', contactId)) === '1';
+        const cachedDiscDone = readCached(doneCacheKey('disc', contactId)) === '1';
+        setValuesDone(cachedValuesDone);
+        setDiscDone(cachedDiscDone);
+
+        // ------ Values ------
+        let vCode = readCached(codeCacheKey('values', contactId));
+        if (!vCode) {
+          vCode = await generateValuesCode();
           if (cancelled) return;
-          writeCachedCode(contactId, currentCode);
+          writeCached(codeCacheKey('values', contactId), vCode);
         }
-        setCode(currentCode);
+        setValuesCode(vCode);
 
-        // 2. Optimistically check if the assessment is already completed
-        //    (e.g. user came back after finishing in another tab).
-        try {
-          const existing = await getValuesResults(currentCode);
+        // If Values was already marked done, skip its launch.
+        let valuesFinished = cachedValuesDone;
+        if (!valuesFinished) {
+          // Opportunistically check whether the taker already finished.
+          try {
+            const existing = await getValuesResults(vCode);
+            if (!cancelled && isValuesResultCompleted(existing)) {
+              valuesFinished = true;
+              setValuesDone(true);
+              writeCached(doneCacheKey('values', contactId), '1');
+            }
+          } catch { /* not started yet */ }
+        }
+
+        if (!valuesFinished) {
+          const launch = await launchValuesAssessment({
+            code: vCode,
+            fname: identity.fname,
+            lname: identity.lname,
+            email: identity.email,
+          });
           if (cancelled) return;
-          if (isValuesResultCompleted(existing)) {
-            setReportUrl(getValuesReportUrl(currentCode));
-            setPhase('completed');
-            notifyCompleted();
-            return;
-          }
-        } catch { /* not yet started — continue */ }
-
-        // 3. Launch (or resume) the values assessment.
-        const derived = deriveNames(email);
-        const fname = (firstName && firstName.trim()) || derived.fname;
-        const lname = (lastName && lastName.trim()) || derived.lname;
-        const launch = await launchValuesAssessment({
-          code: currentCode,
-          fname,
-          lname,
-          email: email ?? '',
-        });
-        if (cancelled) return;
-        setAssessmentUrl(launch.assessment_url);
-
-        // 4. Persist the launch timestamp so the 5-min window survives refresh.
-        let startedAt = 0;
-        try {
-          const raw = localStorage.getItem(startTimeKey(currentCode));
-          startedAt = raw ? Number(raw) : 0;
-        } catch { /* ignore */ }
-        if (!startedAt || Number.isNaN(startedAt)) {
-          startedAt = Date.now();
-          try { localStorage.setItem(startTimeKey(currentCode), String(startedAt)); } catch { /* ignore */ }
+          setValuesUrl(launch.assessment_url);
+          setPhase('values');
+          return;
         }
-        const elapsed = Date.now() - startedAt;
-        if (elapsed >= FIVE_MINUTES_MS) {
-          setElapsedReady(true);
-        } else {
-          timerId = window.setTimeout(() => setElapsedReady(true), FIVE_MINUTES_MS - elapsed);
+
+        // ------ DISC ------
+        let dCode = readCached(codeCacheKey('disc', contactId));
+        if (!dCode) {
+          dCode = await generateDiscCode();
+          if (cancelled) return;
+          writeCached(codeCacheKey('disc', contactId), dCode);
         }
-        setPhase('in_progress');
+        setDiscCode(dCode);
+
+        let discFinished = cachedDiscDone;
+        if (!discFinished) {
+          try {
+            const existing = await getDiscResults(dCode);
+            if (!cancelled && isDiscResultCompleted(existing)) {
+              discFinished = true;
+              setDiscDone(true);
+              writeCached(doneCacheKey('disc', contactId), '1');
+            }
+          } catch { /* not started yet */ }
+        }
+
+        if (!discFinished) {
+          const launch = await launchDiscAssessment({
+            code: dCode,
+            fname: identity.fname,
+            lname: identity.lname,
+            email: identity.email,
+          });
+          if (cancelled) return;
+          setDiscUrl(launch.assessment_url);
+          setPhase('disc');
+          return;
+        }
+
+        // Both finished.
+        setPhase('completed');
+        notifyCompleted();
       } catch (e) {
         if (cancelled) return;
         setPhase('error');
@@ -155,49 +207,89 @@ const ValuesAssessmentStep = ({
       }
     })();
 
-    return () => {
-      cancelled = true;
-      if (timerId !== undefined) window.clearTimeout(timerId);
-    };
-  }, [contactId, email, firstName, lastName, notifyCompleted]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactId]);
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = window.setInterval(() => setCooldown((c) => (c > 0 ? c - 1 : 0)), 1000);
-    return () => window.clearInterval(t);
-  }, [cooldown]);
-
-  const handleCheckStatus = async () => {
-    if (!code || checking || cooldown > 0) return;
-    setChecking(true);
-    setNotCompleteMsg('');
+  /** Advance from `values` to `disc` after Values is confirmed complete. */
+  const startDiscPhase = useCallback(async () => {
+    if (!contactId) return;
     try {
-      const res = await getValuesResults(code);
-      if (isValuesResultCompleted(res)) {
-        setReportUrl(getValuesReportUrl(code));
-        setPhase('completed');
-        notifyCompleted();
-        toast.success('Assessment completed. You may continue.');
-      } else {
-        setNotCompleteMsg(
-          'Your assessment is not yet complete. Please finish the assessment before continuing, then try again.',
-        );
-        setCooldown(CHECK_COOLDOWN_S);
+      const identity = resolveIdentity();
+      let dCode = readCached(codeCacheKey('disc', contactId));
+      if (!dCode) {
+        dCode = await generateDiscCode();
+        writeCached(codeCacheKey('disc', contactId), dCode);
       }
+      setDiscCode(dCode);
+      const launch = await launchDiscAssessment({
+        code: dCode,
+        fname: identity.fname,
+        lname: identity.lname,
+        email: identity.email,
+      });
+      setDiscUrl(launch.assessment_url);
+      setPhase('disc');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to check status.');
-    } finally {
-      setChecking(false);
+      setPhase('error');
+      setErrorMsg(e instanceof Error ? e.message : 'Failed to start DISC assessment.');
     }
-  };
+  }, [contactId, resolveIdentity]);
+
+  useImperativeHandle(ref, () => ({
+    isFullyComplete: () => valuesDone && discDone,
+    checkAndAdvance: async () => {
+      if (!contactId) return 'error';
+      try {
+        if (phase === 'values' || (phase === 'loading' && !valuesDone)) {
+          if (!valuesCode) return 'incomplete';
+          const raw = await getValuesResults(valuesCode);
+          if (!isValuesResultCompleted(raw)) return 'incomplete';
+          setValuesDone(true);
+          writeCached(doneCacheKey('values', contactId), '1');
+          await startDiscPhase();
+          return 'stay';
+        }
+        if (phase === 'disc') {
+          if (!discCode) return 'incomplete';
+          const raw = await getDiscResults(discCode);
+          if (!isDiscResultCompleted(raw)) return 'incomplete';
+          setDiscDone(true);
+          writeCached(doneCacheKey('disc', contactId), '1');
+          setPhase('completed');
+          notifyCompleted();
+          return 'advance';
+        }
+        if (phase === 'completed') return 'advance';
+        return 'incomplete';
+      } catch {
+        return 'error';
+      }
+    },
+  }), [phase, valuesCode, discCode, valuesDone, discDone, contactId, startDiscPhase, notifyCompleted]);
+
+  const stageLabel =
+    phase === 'values' ? 'Step 1 of 2 · Values'
+      : phase === 'disc' ? 'Step 2 of 2 · DISC'
+        : phase === 'completed' ? 'Completed'
+          : '';
 
   return (
     <div className="animate-fade-in space-y-6">
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-        <p className="text-sm font-semibold text-foreground">Values Assessment</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-sm font-semibold text-foreground">Assessment</p>
+          {stageLabel && (
+            <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">
+              {stageLabel}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           Please complete the embedded assessment below. Your progress is saved automatically —
-          if you close the page you can return later and pick up where you left off.
+          if you close the page you can return later and pick up where you left off. Once
+          you're done, click <span className="font-semibold text-foreground">Next</span> to
+          continue.
         </p>
       </div>
 
@@ -215,77 +307,48 @@ const ValuesAssessmentStep = ({
         </div>
       )}
 
-      {phase === 'in_progress' && assessmentUrl && (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border overflow-hidden bg-card">
-            <iframe
-              src={assessmentUrl}
-              title="Values Assessment"
-              className="w-full h-[70vh] min-h-[520px] border-0"
-              allow="fullscreen; clipboard-write"
-            />
-          </div>
+      {phase === 'values' && valuesUrl && (
+        <div className="rounded-xl border border-border overflow-hidden bg-card">
+          <iframe
+            src={valuesUrl}
+            title="Values Assessment"
+            className="w-full h-[70vh] min-h-[520px] border-0"
+            allow="fullscreen; clipboard-write"
+          />
+        </div>
+      )}
 
-          {!elapsedReady ? (
-            <p className="text-xs text-muted-foreground text-center">
-              The Continue button will appear here once you have had time to complete the assessment.
-              Please finish it in the frame above.
-            </p>
-          ) : (
-            <div className="flex flex-col items-center gap-3">
-              <button
-                type="button"
-                onClick={handleCheckStatus}
-                disabled={checking || cooldown > 0}
-                className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                {cooldown > 0
-                  ? `Check Again (${cooldown}s)`
-                  : checking
-                    ? 'Checking…'
-                    : 'Check Assessment Status'}
-              </button>
-              {notCompleteMsg && (
-                <p className="text-sm text-amber-700 dark:text-amber-300 text-center max-w-md">
-                  {notCompleteMsg}
-                </p>
-              )}
-            </div>
-          )}
+      {phase === 'disc' && discUrl && (
+        <div className="rounded-xl border border-border overflow-hidden bg-card">
+          <iframe
+            src={discUrl}
+            title="DISC Assessment"
+            className="w-full h-[70vh] min-h-[520px] border-0"
+            allow="fullscreen; clipboard-write"
+          />
         </div>
       )}
 
       {phase === 'completed' && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Assessment completed</p>
-              <p className="text-sm text-muted-foreground">
-                Thank you — your responses have been recorded. You may continue.
-              </p>
-            </div>
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6 sm:p-8 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
           </div>
-          {reportUrl && (
-            <a
-              href={reportUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-outline inline-flex items-center gap-2 text-sm px-4 py-2 sm:ml-auto"
-            >
-              <Download className="w-4 h-4" /> Download report
-            </a>
-          )}
+          <div>
+            <p className="text-sm font-semibold text-foreground">Assessment completed</p>
+            <p className="text-sm text-muted-foreground">
+              Thank you — your responses for both Values and DISC have been recorded. You may continue.
+            </p>
+          </div>
         </div>
       )}
     </div>
   );
-};
+});
 
-export default ValuesAssessmentStep;
+AssessmentStep.displayName = 'AssessmentStep';
+
+export default AssessmentStep;
 
 // ---------------------------------------------------------------------------
 // Backwards-compat exports for the legacy drag-and-drop callers. IMX owns

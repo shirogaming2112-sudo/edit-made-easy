@@ -14,7 +14,7 @@ import PortfolioStep from '@/components/steps/PortfolioStep';
 import ValuePropositionStep from '@/components/steps/ValuePropositionStep';
 import WorkSetupStep, { WorkSetupData, emptyWorkSetup } from '@/components/steps/WorkSetupStep';
 import ComplianceStep, { ComplianceFormData, emptyCompliance } from '@/components/steps/ComplianceStep';
-import ValuesAssessmentStep from '@/components/steps/ValuesAssessmentStep';
+import AssessmentStep, { AssessmentStepHandle } from '@/components/steps/ValuesAssessmentStep';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -29,6 +29,7 @@ import {
   updateValueProposition, updatePortfolio,
   reapply, todayMDT, extractReferralCode,
   submitAttendance, type AttendanceAvailability,
+  saveApplicantIdentity,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
 
@@ -135,7 +136,10 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const [reapplying, setReapplying] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [assessmentDone, setAssessmentDone] = useState(false);
-  const submittingAssessment = false;
+  const [assessmentCooldown, setAssessmentCooldown] = useState(0);
+  const [assessmentChecking, setAssessmentChecking] = useState(false);
+  const submittingAssessment = assessmentChecking;
+  const assessmentRef = useRef<AssessmentStepHandle>(null);
   const [assessmentConfirmOpen, setAssessmentConfirmOpen] = useState(false);
 
 
@@ -165,6 +169,14 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setEditing(false); }, [activeSection]);
+
+  useEffect(() => {
+    if (assessmentCooldown <= 0) return;
+    const t = window.setInterval(() => setAssessmentCooldown((c) => (c > 0 ? c - 1 : 0)), 1000);
+    return () => window.clearInterval(t);
+  }, [assessmentCooldown]);
+
+
 
   // Load dashboard data on mount.
   useEffect(() => {
@@ -270,6 +282,12 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
         const daRaw = (d as { date_applied?: string }).date_applied;
         const daCustom = (d.custom_fields_raw || []).find((f) => f.id === 'A0IfC6bqqoM4Kv98HTYb')?.value;
         setDateApplied(daRaw || daCustom || '');
+        // Cache identity so the Assessment step can launch IMX with real names.
+        saveApplicantIdentity({
+          email: d.email || '',
+          firstName: pi.first_name || '',
+          lastName: pi.last_name || '',
+        });
       } catch (err) {
         console.warn('getDashboard failed', err);
       }
@@ -710,14 +728,15 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
       <Dialog open={assessmentOpen} onOpenChange={(o) => { if (!submittingAssessment) setAssessmentOpen(o); }}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Values Assessment</DialogTitle>
+            <DialogTitle>Assessment</DialogTitle>
             <DialogDescription>
-              Please complete the embedded Values Assessment below to continue with your reapplication.
+              Please complete the embedded Values and DISC assessments below to continue with your reapplication.
             </DialogDescription>
           </DialogHeader>
-          <ValuesAssessmentStep
+          <AssessmentStep
+            ref={assessmentRef}
             contactId={contactId ?? ''}
-            email={undefined}
+            email={profile.valueProposition ? undefined : undefined}
             firstName={profile.firstName}
             lastName={profile.lastName}
             onCompleted={() => setAssessmentDone(true)}
@@ -733,22 +752,39 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (!assessmentDone) {
-                  toast.error('Please complete the assessment before continuing.');
-                  return;
+              onClick={async () => {
+                if (!assessmentRef.current || assessmentChecking || assessmentCooldown > 0) return;
+                setAssessmentChecking(true);
+                try {
+                  const result = await assessmentRef.current.checkAndAdvance();
+                  if (result === 'advance') {
+                    setAssessmentDone(true);
+                    setAssessmentOpen(false);
+                    setAssessmentConfirmOpen(true);
+                  } else if (result === 'stay') {
+                    toast.info('Values complete — please finish the DISC assessment.');
+                  } else {
+                    setAssessmentCooldown(30);
+                    toast.info('Your assessment is not yet complete. You can try again shortly.');
+                  }
+                } finally {
+                  setAssessmentChecking(false);
                 }
-                setAssessmentOpen(false);
-                setAssessmentConfirmOpen(true);
               }}
-              disabled={submittingAssessment || !assessmentDone}
+              disabled={submittingAssessment || assessmentCooldown > 0}
               className="btn-primary inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Continue
+              {(assessmentChecking || assessmentCooldown > 0) && <Loader2 className="w-4 h-4 animate-spin" />}
+              {assessmentChecking
+                ? 'Checking…'
+                : assessmentCooldown > 0
+                  ? `Try again in ${assessmentCooldown}s`
+                  : 'Continue'}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
 
       <Dialog open={assessmentConfirmOpen} onOpenChange={setAssessmentConfirmOpen}>

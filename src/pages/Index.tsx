@@ -24,7 +24,7 @@ import PortfolioStep from '@/components/steps/PortfolioStep';
 import CertificationsStep from '@/components/steps/CertificationsStep';
 import WorkSetupStep, { WorkSetupStepHandle } from '@/components/steps/WorkSetupStep';
 import ComplianceStep from '@/components/steps/ComplianceStep';
-import ValuesAssessmentStep from '@/components/steps/ValuesAssessmentStep';
+import AssessmentStep, { AssessmentStepHandle } from '@/components/steps/ValuesAssessmentStep';
 import CompletionStep from '@/components/steps/CompletionStep';
 import WizardSidebar from '@/components/wizard/WizardSidebar';
 import WizardNavigation from '@/components/wizard/WizardNavigation';
@@ -39,6 +39,7 @@ import {
   finishApplication,
   todayMDT,
   extractReferralCode,
+  saveApplicantIdentity,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
 
@@ -77,7 +78,7 @@ const SUBSTEP_TITLES: Record<number, string> = {
   9: 'Value Proposition',
   10: 'Work Setup',
   11: 'Compliance',
-  12: 'Values Assessment',
+  12: 'Assessment',
 };
 
 const TOTAL_SUBSTEPS = 12;
@@ -116,6 +117,7 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
     persisted?.completedSidebarSteps ?? [],
   );
   const [assessmentCompleted, setAssessmentCompleted] = useState(false);
+  const [assessmentCooldown, setAssessmentCooldown] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [showIntroModal, setShowIntroModal] = useState(false);
 
@@ -179,12 +181,33 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
   const sidebarStep = SUBSTEP_TO_SIDEBAR[currentSubStep] || 1;
 
   const workSetupRef = useRef<WorkSetupStepHandle>(null);
+  const assessmentRef = useRef<AssessmentStepHandle>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { /* ignore */ }
   }, [currentSubStep]);
+
+  // Assessment "Try again in Ns" countdown.
+  useEffect(() => {
+    if (assessmentCooldown <= 0) return;
+    const t = window.setInterval(() => {
+      setAssessmentCooldown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [assessmentCooldown]);
+
+  // Keep applicant identity in session storage so the Assessment step can
+  // always populate fname/lname/email on IMX launch.
+  useEffect(() => {
+    if (!values.email && !values.personalInfo.firstName && !values.personalInfo.lastName) return;
+    saveApplicantIdentity({
+      email: values.email,
+      firstName: values.personalInfo.firstName,
+      lastName: values.personalInfo.lastName,
+    });
+  }, [values.email, values.personalInfo.firstName, values.personalInfo.lastName]);
 
   const handleNext = async () => {
     if (currentSubStep === 10 && workSetupRef.current && !workSetupRef.current.tryAdvance()) {
@@ -196,16 +219,44 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
     // Persist this substep to the FastAPI backend before advancing.
     const contactId = loadContactId();
     if (currentSubStep === 12) {
-      // IMX Values Assessment — the backend is the source of truth. The step
-      // component signals completion via `onCompleted`; block Next until then.
-      if (!assessmentCompleted) {
-        toast.error('Please complete the assessment before continuing.');
-        return;
+      // Assessment step — Next button asks the step whether IMX has results
+      // yet. If not, start a 30s cooldown before allowing another attempt.
+      if (!assessmentRef.current) return;
+      if (assessmentCooldown > 0 || submitting) return;
+      setSubmitting(true);
+      try {
+        const result = await assessmentRef.current.checkAndAdvance();
+        if (result === 'stay') {
+          // Moved from Values → DISC internally; wizard stays on step 12.
+          return;
+        }
+        if (result === 'advance') {
+          setAssessmentCompleted(true);
+          // fall through to sidebar / submit logic below
+        } else if (result === 'incomplete') {
+          setAssessmentCooldown(30);
+          toast.info('Your assessment is not yet complete. You can try again shortly.');
+          return;
+        } else {
+          setAssessmentCooldown(30);
+          toast.error('Could not verify assessment status. Try again shortly.');
+          return;
+        }
+      } finally {
+        setSubmitting(false);
       }
     } else if (contactId) {
       try {
         setSubmitting(true);
         await submitSubstep(contactId, currentSubStep, values, referrer);
+        if (currentSubStep === 1) {
+          // Persist identity immediately after Personal Info saves.
+          saveApplicantIdentity({
+            email: values.email,
+            firstName: values.personalInfo.firstName,
+            lastName: values.personalInfo.lastName,
+          });
+        }
         // /finish marks the application as completed — fire it as soon as
         // the Work Setup step (substep 10) is saved so the wizard end no
         // longer needs a global submit endpoint.
@@ -235,6 +286,7 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
       setCurrentSubStep((s) => s + 1);
     }
   };
+
 
   const handlePrevious = () => {
     if (currentSubStep > 1) setCurrentSubStep((s) => s - 1);
@@ -439,7 +491,8 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               />
             )}
             {currentSubStep === 12 && (
-              <ValuesAssessmentStep
+              <AssessmentStep
+                ref={assessmentRef}
                 contactId={loadContactId() ?? ''}
                 email={values.email}
                 firstName={values.personalInfo.firstName}
@@ -455,7 +508,10 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               isFirst={currentSubStep === 1}
               isLast={currentSubStep === TOTAL_SUBSTEPS}
               isSubmitting={submitting}
+              cooldownSeconds={currentSubStep === 12 ? assessmentCooldown : 0}
+              checkingLabel={currentSubStep === 12 && submitting ? 'Checking…' : undefined}
             />
+
           </div>
 
           <div className="mt-6 flex justify-start">

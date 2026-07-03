@@ -139,7 +139,7 @@ export const STEPS = [
   { number: 6, label: 'Value Proposition', key: 'valueProp' },
   { number: 7, label: 'Work Setup', key: 'workSetup' },
   { number: 8, label: 'Compliance', key: 'compliance' },
-  { number: 9, label: 'Values Assessment', key: 'valuesAssessment' },
+  { number: 9, label: 'Assessment', key: 'valuesAssessment' },
 ] as const;
 
 export const SKILL_CATEGORIES: SkillCategory[] = [

@@ -1,8 +1,10 @@
 import { useState, forwardRef, useImperativeHandle } from 'react';
 import FileDropzone from '@/components/wizard/FileDropzone';
 import RequiredLabel from '@/components/wizard/RequiredLabel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Cpu, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+
 
 
 
@@ -173,11 +175,19 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
   const [internal, setInternal] = useState<WorkSetupData>(emptyWorkSetup);
   const [detecting, setDetecting] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [tab, setTab] = useState<'device' | 'isp'>('device');
   const value = data ?? internal;
 
   useImperativeHandle(ref, () => ({
-    tryAdvance: () => true,
-  }), []);
+    tryAdvance: () => {
+      if (tab === 'device') {
+        setTab('isp');
+        return false;
+      }
+      return true;
+    },
+  }), [tab]);
+
 
   const update = <K extends keyof WorkSetupData>(field: K, v: WorkSetupData[K]) => {
     const next = { ...value, [field]: v };
@@ -208,9 +218,14 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </p>
       </div>
 
-      {/* Device Specification */}
-      {(
-        <div className="space-y-6 animate-fade-in">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'device' | 'isp')} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="device">Device Specification</TabsTrigger>
+          <TabsTrigger value="isp">ISP Setup</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="device" className="space-y-6 animate-fade-in mt-0">
+
 
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
             <div>
@@ -371,11 +386,10 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
             </div>
           </div>
 
-        </div>
-      )}
+        </TabsContent>
 
-      {/* Internet / ISP details — merged into the single Device Specification view */}
-      <div className="space-y-4 animate-fade-in mt-6">
+        <TabsContent value="isp" className="space-y-4 animate-fade-in mt-0">
+
         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm text-muted-foreground">
           <p className="font-semibold text-foreground">Network Requirements</p>
           <p>10 Mbps DSL/Fiber Internet connection (USB sticks, signal-based &amp; wireless connections are not allowed).</p>
@@ -432,8 +446,10 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
             onChange={(e) => update('secondaryISPSpeedtest' as keyof WorkSetupData, e.target.value as never)}
           />
         </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
+
   );
 });
 

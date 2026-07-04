@@ -220,7 +220,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
       const identity = resolveIdentity();
       let dCode = readCached(codeCacheKey('disc', contactId));
       if (!dCode) {
-        dCode = await generateDiscCode();
+        dCode = await generateDiscCode(contactId);
         writeCached(codeCacheKey('disc', contactId), dCode);
       }
       setDiscCode(dCode);
@@ -229,6 +229,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         fname: identity.fname,
         lname: identity.lname,
         email: identity.email,
+        contact_id: contactId,
       });
       setDiscUrl(launch.assessment_url);
       setPhase('disc');

@@ -246,7 +246,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
       try {
         if (phase === 'values' || (phase === 'loading' && !valuesDone)) {
           if (!valuesCode) return 'incomplete';
-          const raw = await getValuesResults(valuesCode);
+          const raw = await getValuesResults(valuesCode, contactId);
           if (!isValuesResultCompleted(raw)) return 'incomplete';
           setValuesDone(true);
           writeCached(doneCacheKey('values', contactId), '1');
@@ -255,7 +255,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         }
         if (phase === 'disc') {
           if (!discCode) return 'incomplete';
-          const raw = await getDiscResults(discCode);
+          const raw = await getDiscResults(discCode, contactId);
           if (!isDiscResultCompleted(raw)) return 'incomplete';
           setDiscDone(true);
           writeCached(doneCacheKey('disc', contactId), '1');

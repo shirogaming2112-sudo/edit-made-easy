@@ -746,24 +746,38 @@ export interface ImxLaunchParams {
   fname: string;
   lname: string;
   email: string;
+  contact_id: string;
   complete_url?: string;
   lang?: string;
+}
+
+function requireContactId(contactId: string): string {
+  if (!contactId || !contactId.trim()) {
+    throw new Error('contact_id is required for IMX assessment requests.');
+  }
+  return contactId;
+}
+
+function withContactId(code: string, contactId: string): string {
+  return `${encodeURIComponent(code)}?contact_id=${encodeURIComponent(requireContactId(contactId))}`;
 }
 
 /**
  * Generate IMX assessment codes. Backend proxies IMX's `/generate_code/` which
  * returns freshly-minted codes but does NOT associate them with a user — the
- * frontend must cache the returned code per user in localStorage.
+ * frontend must cache the returned code per user in localStorage. We always
+ * send `contact_id` so the backend can associate the code with the applicant.
  *
  * Prefixes: `"VI"` = Values, `"DI"` = DISC, `"AI"` = Attribute Index.
  */
 export async function generateAssessmentCodes(
   prefix: 'VI' | 'DI' | 'AI',
-  count = 1,
+  count: number,
+  contactId: string,
 ): Promise<string[]> {
   const raw = await imxRequest<unknown>('/generate_codes', {
     method: 'POST',
-    body: JSON.stringify({ prefix, count }),
+    body: JSON.stringify({ prefix, count, contact_id: requireContactId(contactId) }),
   });
   const list: unknown[] = Array.isArray(raw)
     ? raw
@@ -781,34 +795,34 @@ export async function generateAssessmentCodes(
   return codes;
 }
 
-export async function generateValuesCode(): Promise<string> {
-  const [code] = await generateAssessmentCodes('VI', 1);
+export async function generateValuesCode(contactId: string): Promise<string> {
+  const [code] = await generateAssessmentCodes('VI', 1, contactId);
   return code;
 }
 
 export function launchValuesAssessment(params: ImxLaunchParams) {
   return imxRequest<ImxLaunchResponse>('/launch_values', {
     method: 'POST',
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, contact_id: requireContactId(params.contact_id) }),
   });
 }
 
 export function launchDiscAssessment(params: ImxLaunchParams) {
   return imxRequest<ImxLaunchResponse>('/launch_disc', {
     method: 'POST',
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, contact_id: requireContactId(params.contact_id) }),
   });
 }
 
 export function launchAiAssessment(params: ImxLaunchParams & { ai_report?: number }) {
   return imxRequest<ImxLaunchResponse>('/launch_ai', {
     method: 'POST',
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, contact_id: requireContactId(params.contact_id) }),
   });
 }
 
-export function getValuesResults(code: string) {
-  return imxRequest<unknown>(`/values/results/${encodeURIComponent(code)}`, {
+export function getValuesResults(code: string, contactId: string) {
+  return imxRequest<unknown>(`/values/results/${withContactId(code, contactId)}`, {
     method: 'GET',
   });
 }
@@ -834,25 +848,25 @@ function isImxResultCompleted(raw: unknown): boolean {
 export const isValuesResultCompleted = isImxResultCompleted;
 export const isDiscResultCompleted = isImxResultCompleted;
 
-export function getValuesReportUrl(code: string): string {
-  return imxUrl(`/values/report/${encodeURIComponent(code)}`);
+export function getValuesReportUrl(code: string, contactId: string): string {
+  return imxUrl(`/values/report/${withContactId(code, contactId)}`);
 }
 
 // ------------------------ DISC ------------------------
 
-export async function generateDiscCode(): Promise<string> {
-  const [code] = await generateAssessmentCodes('DI', 1);
+export async function generateDiscCode(contactId: string): Promise<string> {
+  const [code] = await generateAssessmentCodes('DI', 1, contactId);
   return code;
 }
 
-export function getDiscResults(code: string) {
-  return imxRequest<unknown>(`/disc/results/${encodeURIComponent(code)}`, {
+export function getDiscResults(code: string, contactId: string) {
+  return imxRequest<unknown>(`/disc/results/${withContactId(code, contactId)}`, {
     method: 'GET',
   });
 }
 
-export function getDiscReportUrl(code: string): string {
-  return imxUrl(`/disc/report/${encodeURIComponent(code)}`);
+export function getDiscReportUrl(code: string, contactId: string): string {
+  return imxUrl(`/disc/report/${withContactId(code, contactId)}`);
 }
 
 

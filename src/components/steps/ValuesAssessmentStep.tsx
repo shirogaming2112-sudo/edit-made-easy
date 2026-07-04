@@ -130,7 +130,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         // ------ Values ------
         let vCode = readCached(codeCacheKey('values', contactId));
         if (!vCode) {
-          vCode = await generateValuesCode();
+          vCode = await generateValuesCode(contactId);
           if (cancelled) return;
           writeCached(codeCacheKey('values', contactId), vCode);
         }
@@ -141,7 +141,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         if (!valuesFinished) {
           // Opportunistically check whether the taker already finished.
           try {
-            const existing = await getValuesResults(vCode);
+            const existing = await getValuesResults(vCode, contactId);
             if (!cancelled && isValuesResultCompleted(existing)) {
               valuesFinished = true;
               setValuesDone(true);
@@ -156,6 +156,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
             fname: identity.fname,
             lname: identity.lname,
             email: identity.email,
+            contact_id: contactId,
           });
           if (cancelled) return;
           setValuesUrl(launch.assessment_url);
@@ -166,7 +167,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         // ------ DISC ------
         let dCode = readCached(codeCacheKey('disc', contactId));
         if (!dCode) {
-          dCode = await generateDiscCode();
+          dCode = await generateDiscCode(contactId);
           if (cancelled) return;
           writeCached(codeCacheKey('disc', contactId), dCode);
         }
@@ -175,7 +176,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         let discFinished = cachedDiscDone;
         if (!discFinished) {
           try {
-            const existing = await getDiscResults(dCode);
+            const existing = await getDiscResults(dCode, contactId);
             if (!cancelled && isDiscResultCompleted(existing)) {
               discFinished = true;
               setDiscDone(true);
@@ -190,6 +191,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
             fname: identity.fname,
             lname: identity.lname,
             email: identity.email,
+            contact_id: contactId,
           });
           if (cancelled) return;
           setDiscUrl(launch.assessment_url);
@@ -218,7 +220,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
       const identity = resolveIdentity();
       let dCode = readCached(codeCacheKey('disc', contactId));
       if (!dCode) {
-        dCode = await generateDiscCode();
+        dCode = await generateDiscCode(contactId);
         writeCached(codeCacheKey('disc', contactId), dCode);
       }
       setDiscCode(dCode);
@@ -227,6 +229,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         fname: identity.fname,
         lname: identity.lname,
         email: identity.email,
+        contact_id: contactId,
       });
       setDiscUrl(launch.assessment_url);
       setPhase('disc');
@@ -243,7 +246,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
       try {
         if (phase === 'values' || (phase === 'loading' && !valuesDone)) {
           if (!valuesCode) return 'incomplete';
-          const raw = await getValuesResults(valuesCode);
+          const raw = await getValuesResults(valuesCode, contactId);
           if (!isValuesResultCompleted(raw)) return 'incomplete';
           setValuesDone(true);
           writeCached(doneCacheKey('values', contactId), '1');
@@ -252,7 +255,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         }
         if (phase === 'disc') {
           if (!discCode) return 'incomplete';
-          const raw = await getDiscResults(discCode);
+          const raw = await getDiscResults(discCode, contactId);
           if (!isDiscResultCompleted(raw)) return 'incomplete';
           setDiscDone(true);
           writeCached(doneCacheKey('disc', contactId), '1');

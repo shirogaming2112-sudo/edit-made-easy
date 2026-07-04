@@ -167,7 +167,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         // ------ DISC ------
         let dCode = readCached(codeCacheKey('disc', contactId));
         if (!dCode) {
-          dCode = await generateDiscCode();
+          dCode = await generateDiscCode(contactId);
           if (cancelled) return;
           writeCached(codeCacheKey('disc', contactId), dCode);
         }
@@ -176,7 +176,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         let discFinished = cachedDiscDone;
         if (!discFinished) {
           try {
-            const existing = await getDiscResults(dCode);
+            const existing = await getDiscResults(dCode, contactId);
             if (!cancelled && isDiscResultCompleted(existing)) {
               discFinished = true;
               setDiscDone(true);
@@ -191,6 +191,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
             fname: identity.fname,
             lname: identity.lname,
             email: identity.email,
+            contact_id: contactId,
           });
           if (cancelled) return;
           setDiscUrl(launch.assessment_url);

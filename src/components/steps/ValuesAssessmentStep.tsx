@@ -141,7 +141,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         if (!valuesFinished) {
           // Opportunistically check whether the taker already finished.
           try {
-            const existing = await getValuesResults(vCode);
+            const existing = await getValuesResults(vCode, contactId);
             if (!cancelled && isValuesResultCompleted(existing)) {
               valuesFinished = true;
               setValuesDone(true);
@@ -156,6 +156,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
             fname: identity.fname,
             lname: identity.lname,
             email: identity.email,
+            contact_id: contactId,
           });
           if (cancelled) return;
           setValuesUrl(launch.assessment_url);

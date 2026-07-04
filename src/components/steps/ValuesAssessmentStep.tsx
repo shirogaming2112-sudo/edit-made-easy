@@ -130,7 +130,7 @@ const AssessmentStep = forwardRef<AssessmentStepHandle, AssessmentStepProps>(({
         // ------ Values ------
         let vCode = readCached(codeCacheKey('values', contactId));
         if (!vCode) {
-          vCode = await generateValuesCode();
+          vCode = await generateValuesCode(contactId);
           if (cancelled) return;
           writeCached(codeCacheKey('values', contactId), vCode);
         }

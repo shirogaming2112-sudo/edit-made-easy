@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Certification } from '@/types/application';
 import FileDropzone from '@/components/wizard/FileDropzone';
 import { Trash2 } from 'lucide-react';
@@ -6,6 +7,7 @@ import RequiredLabel from '@/components/wizard/RequiredLabel';
 interface CertificationsStepProps {
   data: Certification[];
   onChange: (data: Certification[]) => void;
+  onSkip?: () => void;
 }
 
 const emptyCert = (): Certification => ({
@@ -19,7 +21,10 @@ const emptyCert = (): Certification => ({
   certificate: null,
 });
 
-const CertificationsStep = ({ data, onChange }: CertificationsStepProps) => {
+const CertificationsStep = ({ data, onChange, onSkip }: CertificationsStepProps) => {
+  // Default to "yes" view if the applicant already added anything.
+  const [hasCerts, setHasCerts] = useState<boolean | null>(data.length > 0 ? true : null);
+
   const certs = data.length ? data : [emptyCert()];
 
   const updateCert = (index: number, field: keyof Certification, value: string) => {
@@ -43,13 +48,61 @@ const CertificationsStep = ({ data, onChange }: CertificationsStepProps) => {
 
   const MAX_CERTS = 5;
 
+  if (hasCerts === null) {
+    return (
+      <div className="animate-fade-in space-y-6">
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <p className="text-sm font-semibold text-foreground">Certifications / Trainings</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Sharing certifications or trainings helps clients better understand your qualifications. If you don't have any yet, that's perfectly fine — you can continue without them.
+          </p>
+        </div>
+
+        <div className="border border-border rounded-xl p-8 text-center space-y-6">
+          <h3 className="text-lg font-heading font-semibold text-foreground">
+            Do you have certifications or trainings you'd like to include?
+          </h3>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => setHasCerts(true)}
+              className="btn-primary px-6"
+            >
+              Yes, I have certifications
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onChange([]);
+                setHasCerts(false);
+                onSkip?.();
+              }}
+              className="btn-outline px-6"
+            >
+              No, I don't have any yet
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in space-y-6">
-      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-        <p className="text-sm font-semibold text-foreground">Showcase your certifications and trainings.</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Include any completed courses, certifications, internal trainings, or workshops that strengthen your qualifications. Limit to 5 entries.
-        </p>
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Showcase your certifications and trainings.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Include any completed courses, certifications, internal trainings, or workshops that strengthen your qualifications. Limit to 5 entries.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setHasCerts(null)}
+          className="text-xs text-primary hover:underline font-medium whitespace-nowrap"
+        >
+          Change answer
+        </button>
       </div>
       <h3 className="text-lg font-heading font-semibold text-foreground">Certifications / Trainings</h3>
 
@@ -89,7 +142,12 @@ const CertificationsStep = ({ data, onChange }: CertificationsStepProps) => {
 
           <div>
             <label className="form-label">Upload Certificate / Proof of Completion</label>
-            <FileDropzone onFilesSelected={(files) => updateCertFile(index, files)} label={`cert-${cert.id}`} multiple={false} />
+            <FileDropzone
+              onFilesSelected={(files) => updateCertFile(index, files)}
+              label={`cert-${cert.id}`}
+              multiple={false}
+              initialFiles={cert.certificate ? [cert.certificate] : []}
+            />
           </div>
         </div>
       ))}

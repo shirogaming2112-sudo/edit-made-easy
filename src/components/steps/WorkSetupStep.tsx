@@ -2,8 +2,11 @@ import { useState, forwardRef, useImperativeHandle } from 'react';
 import FileDropzone from '@/components/wizard/FileDropzone';
 import RequiredLabel from '@/components/wizard/RequiredLabel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cpu, Loader2 } from 'lucide-react';
+import { Cpu, Loader2, Eye, X, Monitor, Laptop } from 'lucide-react';
 import { toast } from 'sonner';
+import windowsSampleAsset from '@/assets/device-sample-windows.png.asset.json';
+import macSampleAsset from '@/assets/device-sample-mac.png.asset.json';
+
 
 
 
@@ -27,6 +30,8 @@ export interface WorkSetupData {
   deviceScreenshots?: File[];
   secondaryDeviceScreenshots?: File[];
   detectedSpecs?: DetectedSpecs;
+  activeTab?: 'device' | 'isp';
+  consent?: boolean;
 }
 
 export const emptyWorkSetup: WorkSetupData = {
@@ -38,12 +43,15 @@ export const emptyWorkSetup: WorkSetupData = {
   secondaryISP: '',
   primaryISPSpeedtest: '',
   secondaryISPSpeedtest: '',
+  activeTab: 'device',
+  consent: false,
 };
 
 interface WorkSetupStepProps {
   data?: WorkSetupData;
   onChange?: (data: WorkSetupData) => void;
 }
+
 
 export interface WorkSetupStepHandle {
   /** Returns true if the wizard may advance to the next step, false if the step handled it internally (e.g. switched tabs). */
@@ -174,19 +182,22 @@ async function detectSystemSpecs(): Promise<DetectedSpecs> {
 const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ data, onChange }, ref) => {
   const [internal, setInternal] = useState<WorkSetupData>(emptyWorkSetup);
   const [detecting, setDetecting] = useState(false);
-  const [consent, setConsent] = useState(false);
-  const [tab, setTab] = useState<'device' | 'isp'>('device');
+  const [sampleOpen, setSampleOpen] = useState(false);
   const value = data ?? internal;
+  const tab: 'device' | 'isp' = value.activeTab ?? 'device';
+  const consent = value.consent ?? false;
 
   useImperativeHandle(ref, () => ({
     tryAdvance: () => {
       if (tab === 'device') {
-        setTab('isp');
+        const next = { ...value, activeTab: 'isp' as const };
+        if (onChange) onChange(next); else setInternal(next);
         return false;
       }
       return true;
     },
-  }), [tab]);
+  }), [tab, value, onChange]);
+
 
 
   const update = <K extends keyof WorkSetupData>(field: K, v: WorkSetupData[K]) => {
@@ -218,7 +229,7 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'device' | 'isp')} className="w-full">
+      <Tabs value={tab} onValueChange={(v) => update('activeTab', v as 'device' | 'isp')} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="device">Device Specification</TabsTrigger>
           <TabsTrigger value="isp">ISP Setup</TabsTrigger>
@@ -282,16 +293,34 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
           </div>
 
           <div className="space-y-2">
-            <RequiredLabel>Primary Device Specification Screenshot</RequiredLabel>
-            <p className="text-sm text-muted-foreground">Please upload screenshots of your Device Specification</p>
-            <FileDropzone onFilesSelected={(files) => update('deviceScreenshots', files)} label="device-spec" />
+            <div className="flex items-center justify-between gap-2">
+              <RequiredLabel>Primary Device Specification Screenshot</RequiredLabel>
+              <button
+                type="button"
+                onClick={() => setSampleOpen(true)}
+                className="btn-outline text-xs px-3 py-1.5 inline-flex items-center gap-2"
+              >
+                <Eye className="w-3.5 h-3.5" /> See example screenshots
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">Please upload screenshots of your Device Specification (Windows: Settings ▸ System ▸ About; macOS: About This Mac).</p>
+            <FileDropzone
+              onFilesSelected={(files) => update('deviceScreenshots', files)}
+              label="device-spec"
+              initialFiles={value.deviceScreenshots}
+            />
           </div>
 
           <div className="space-y-2">
             <label className="form-label">Secondary Device Specification Screenshot</label>
             <p className="text-sm text-muted-foreground">Optional — upload if you have a backup device.</p>
-            <FileDropzone onFilesSelected={(files) => update('secondaryDeviceScreenshots', files)} label="secondary-device-spec" />
+            <FileDropzone
+              onFilesSelected={(files) => update('secondaryDeviceScreenshots', files)}
+              label="secondary-device-spec"
+              initialFiles={value.secondaryDeviceScreenshots}
+            />
           </div>
+
 
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
             <div>
@@ -334,13 +363,14 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
               <input
                 type="checkbox"
                 checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
+                onChange={(e) => update('consent', e.target.checked)}
                 className="mt-0.5 w-4 h-4 text-primary border-border rounded"
               />
               <span className="text-xs text-foreground">
                 I have read and agree to the Device Specification Notice above.
               </span>
             </label>
+
 
             <div className="flex items-center justify-end">
               <button
@@ -448,10 +478,52 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </div>
         </TabsContent>
       </Tabs>
+
+      {sampleOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-foreground/70 flex items-center justify-center p-4"
+          onClick={() => setSampleOpen(false)}
+        >
+          <div
+            className="bg-card rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <p className="text-sm font-semibold text-foreground">Sample Device Specification Screenshots</p>
+              <button
+                type="button"
+                onClick={() => setSampleOpen(false)}
+                className="p-1 text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-muted grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-foreground inline-flex items-center gap-1.5">
+                  <Monitor className="w-3.5 h-3.5" /> Windows — Settings ▸ System ▸ About
+                </p>
+                <img src={windowsSampleAsset.url} alt="Windows System About sample" className="w-full h-auto rounded-lg border border-border bg-card" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-foreground inline-flex items-center gap-1.5">
+                  <Laptop className="w-3.5 h-3.5" /> macOS — About This Mac
+                </p>
+                <img src={macSampleAsset.url} alt="macOS About This Mac sample" className="w-full h-auto rounded-lg border border-border bg-card" />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground px-4 py-3 border-t border-border">
+              Reference only — upload a screenshot of your own device's About page.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
 
   );
 });
+
 
 WorkSetupStep.displayName = 'WorkSetupStep';
 

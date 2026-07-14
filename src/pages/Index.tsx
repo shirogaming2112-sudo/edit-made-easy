@@ -42,6 +42,8 @@ import {
   saveApplicantIdentity,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
+import { isSubStepValid } from '@/lib/validation/stepValidation';
+
 
 import {
   PersonalInfo,
@@ -420,14 +422,22 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
                 portfolioLink={values.portfolioLink}
                 onPortfolioLinkChange={(v) => setField('portfolioLink', v)}
                 onFilesChange={(files) => setField('portfolioFiles', files)}
+                initialFiles={values.portfolioFiles}
               />
             )}
             {currentSubStep === 8 && (
               <CertificationsStep
                 data={values.certifications}
                 onChange={(d: Certification[]) => setField('certifications', d)}
+                onSkip={() => {
+                  setCompletedSidebarSteps((prev) =>
+                    prev.includes(5) ? prev : [...prev, 5],
+                  );
+                  setCurrentSubStep(9);
+                }}
               />
             )}
+
             {currentSubStep === 9 && (
               <ValuePropositionStep
                 value={values.personalInfo.valueProposition}
@@ -510,7 +520,9 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
               isSubmitting={submitting}
               cooldownSeconds={currentSubStep === 12 ? assessmentCooldown : 0}
               checkingLabel={currentSubStep === 12 && submitting ? 'Checking…' : undefined}
+              disableNext={!isSubStepValid(currentSubStep, values)}
             />
+
 
           </div>
 

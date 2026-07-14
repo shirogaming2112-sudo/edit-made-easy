@@ -15,6 +15,8 @@ export interface ComplianceFormData {
   proofOfSeparation?: File | null;
   nbiValidity: string;
   policeValidity: string;
+  canSubmitNbiPolice?: 'yes' | 'no' | '';
+  canSubmitCoe?: 'yes' | 'no' | '';
 }
 
 export const emptyCompliance: ComplianceFormData = {
@@ -25,7 +27,10 @@ export const emptyCompliance: ComplianceFormData = {
   proofOfSeparation: null,
   nbiValidity: '',
   policeValidity: '',
+  canSubmitNbiPolice: '',
+  canSubmitCoe: '',
 };
+
 
 interface ComplianceStepProps {
   data?: ComplianceFormData;
@@ -36,15 +41,18 @@ const PROOF_ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf
 
 const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
   const [internal, setInternal] = useState<ComplianceFormData>(emptyCompliance);
-  const [canSubmitNbiPolice, setCanSubmitNbiPolice] = useState<'yes' | 'no' | ''>('');
-  const [canSubmitCoe, setCanSubmitCoe] = useState<'yes' | 'no' | ''>('');
   const [sampleOpen, setSampleOpen] = useState<null | 'nbi' | 'police'>(null);
   const value = data ?? internal;
+  const canSubmitNbiPolice = value.canSubmitNbiPolice ?? '';
+  const canSubmitCoe = value.canSubmitCoe ?? '';
   const update = <K extends keyof ComplianceFormData>(field: K, v: ComplianceFormData[K]) => {
     const next = { ...value, [field]: v };
     if (onChange) onChange(next);
     else setInternal(next);
   };
+  const setCanSubmitNbiPolice = (v: 'yes' | 'no' | '') => update('canSubmitNbiPolice', v);
+  const setCanSubmitCoe = (v: 'yes' | 'no' | '') => update('canSubmitCoe', v);
+
 
   const handleProofSelected = (files: File[]) => {
     const file = files[0];
@@ -98,7 +106,7 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
 
       <div className="space-y-2">
         <RequiredLabel>Valid ID</RequiredLabel>
-        <FileDropzone label="valid-id" imagesOnly multiple={false} maxFiles={1} onFilesSelected={(files) => update('validId', files[0] ?? null)} />
+        <FileDropzone label="valid-id" imagesOnly multiple={false} maxFiles={1} initialFiles={value.validId ? [value.validId] : []} onFilesSelected={(files) => update('validId', files[0] ?? null)} />
       </div>
 
       {/* NBI + Police gate — hides once answered */}
@@ -154,7 +162,7 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
             >
               <Eye className="w-3.5 h-3.5" /> See example of document
             </button>
-            <FileDropzone label="nbi-clearance" imagesOnly multiple={false} maxFiles={1} onFilesSelected={(files) => update('nbiClearance', files[0] ?? null)} />
+            <FileDropzone label="nbi-clearance" imagesOnly multiple={false} maxFiles={1} initialFiles={value.nbiClearance ? [value.nbiClearance] : []} onFilesSelected={(files) => update('nbiClearance', files[0] ?? null)} />
             <div>
               <RequiredLabel>Valid Until</RequiredLabel>
               <input
@@ -183,7 +191,7 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
             >
               <Eye className="w-3.5 h-3.5" /> See example of document
             </button>
-            <FileDropzone label="police-clearance" imagesOnly multiple={false} maxFiles={1} onFilesSelected={(files) => update('policeClearance', files[0] ?? null)} />
+            <FileDropzone label="police-clearance" imagesOnly multiple={false} maxFiles={1} initialFiles={value.policeClearance ? [value.policeClearance] : []} onFilesSelected={(files) => update('policeClearance', files[0] ?? null)} />
             <div>
               <RequiredLabel>Valid Until</RequiredLabel>
               <input
@@ -259,8 +267,10 @@ const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
             multiple={false}
             maxFiles={1}
             accept="image/jpeg,image/png,application/pdf"
+            initialFiles={value.proofOfSeparation ? [value.proofOfSeparation] : []}
             onFilesSelected={handleProofSelected}
           />
+
           <p className="text-xs text-muted-foreground">Accepted formats: JPG, PNG, or PDF. Only one file allowed.</p>
         </div>
       )}

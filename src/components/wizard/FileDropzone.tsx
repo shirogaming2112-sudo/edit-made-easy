@@ -1,5 +1,5 @@
 import { Upload, FileText, Image as ImageIcon, Eye, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 interface FileDropzoneProps {
@@ -9,6 +9,9 @@ interface FileDropzoneProps {
   label?: string;
   maxFiles?: number;
   imagesOnly?: boolean;
+  /** Files previously selected — used to hydrate the dropzone when the
+   * user navigates back to a step so uploads aren't lost. */
+  initialFiles?: File[];
 }
 
 interface UploadedFile {
@@ -25,9 +28,38 @@ const FileDropzone = ({
   label,
   maxFiles = 10,
   imagesOnly = true,
+  initialFiles,
 }: FileDropzoneProps) => {
-  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [files, setFiles] = useState<UploadedFile[]>(() =>
+    (initialFiles ?? []).map((file) => ({
+      id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      url: URL.createObjectURL(file),
+      isImage: file.type.startsWith('image/'),
+    })),
+  );
   const [previewing, setPreviewing] = useState<UploadedFile | null>(null);
+  const hydratedKey = useRef<string>(
+    (initialFiles ?? []).map((f) => `${f.name}:${f.size}`).join('|'),
+  );
+
+  // Re-hydrate when the parent supplies a new set of files (e.g. drafts
+  // reset on Cancel in the dashboard). Skip when identical.
+  useEffect(() => {
+    const key = (initialFiles ?? []).map((f) => `${f.name}:${f.size}`).join('|');
+    if (key === hydratedKey.current) return;
+    hydratedKey.current = key;
+    files.forEach((f) => URL.revokeObjectURL(f.url));
+    setFiles(
+      (initialFiles ?? []).map((file) => ({
+        id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        url: URL.createObjectURL(file),
+        isImage: file.type.startsWith('image/'),
+      })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFiles]);
 
   useEffect(() => {
     return () => {
@@ -35,6 +67,7 @@ const FileDropzone = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const addFiles = useCallback(
     (incoming: File[]) => {

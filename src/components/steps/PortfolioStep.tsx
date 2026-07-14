@@ -6,9 +6,10 @@ interface PortfolioStepProps {
   portfolioLink: string;
   onPortfolioLinkChange: (value: string) => void;
   onFilesChange: (files: File[]) => void;
+  initialFiles?: File[];
 }
 
-const PortfolioStep = ({ portfolioLink, onPortfolioLinkChange, onFilesChange }: PortfolioStepProps) => {
+const PortfolioStep = ({ portfolioLink, onPortfolioLinkChange, onFilesChange, initialFiles }: PortfolioStepProps) => {
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -49,6 +50,7 @@ const PortfolioStep = ({ portfolioLink, onPortfolioLinkChange, onFilesChange }: 
           label="portfolio"
           imagesOnly
           maxFiles={10}
+          initialFiles={initialFiles}
         />
       </div>
     </div>
@@ -56,3 +58,4 @@ const PortfolioStep = ({ portfolioLink, onPortfolioLinkChange, onFilesChange }: 
 };
 
 export default PortfolioStep;
+

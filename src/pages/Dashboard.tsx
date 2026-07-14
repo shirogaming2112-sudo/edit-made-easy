@@ -32,6 +32,8 @@ import {
   saveApplicantIdentity,
 } from '@/lib/apiClient';
 import { toast } from 'sonner';
+import FilePreviewLink from '@/components/common/FilePreviewLink';
+
 
 import SearchableSelect from '@/components/common/SearchableSelect';
 import PhoneInput from '@/components/common/PhoneInput';
@@ -114,6 +116,10 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
   const [portfolioFileNames, setPortfolioFileNames] = useState<string[]>([]);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [dateApplied, setDateApplied] = useState<string>('');
+  const [portfolioFileUrls, setPortfolioFileUrls] = useState<Array<{ name: string; url: string }>>([]);
+  const [complianceUrls, setComplianceUrls] = useState<{ validId?: string; nbi?: string; police?: string; coe?: string }>({});
+  const [workSetupUrls, setWorkSetupUrls] = useState<{ primary: string[]; secondary: string[] }>({ primary: [], secondary: [] });
+
 
   // Drafts
   const [draftProfile, setDraftProfile] = useState<PersonalInfo>(emptyProfile);
@@ -278,6 +284,38 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
             return obj.name || obj.file_name || obj.url || '';
           }).filter(Boolean),
         );
+        setPortfolioFileUrls(
+          pfFiles.map((f) => {
+            if (typeof f === 'string') return { name: f.split('/').pop() || f, url: f };
+            const obj = f as { name?: string; file_name?: string; url?: string };
+            const url = obj.url || '';
+            return url ? { name: obj.name || obj.file_name || url.split('/').pop() || url, url } : null;
+          }).filter((x): x is { name: string; url: string } => !!x),
+        );
+        // Best-effort: photo URL and file URLs live on the raw dashboard payload.
+        const anyD = d as unknown as { personal_info?: Record<string, unknown>; compliance?: Record<string, unknown>; work_setup?: Record<string, unknown> };
+        const piRaw = (anyD.personal_info || {}) as Record<string, unknown>;
+        const photoUrl = String(piRaw.photo_url || piRaw.photoUrl || piRaw.profile_photo_url || '');
+        if (photoUrl) setPhotoPreview(photoUrl);
+        const coRaw = (anyD.compliance || {}) as Record<string, unknown>;
+        setComplianceUrls({
+          validId: String(coRaw.valid_id_url || coRaw.validIdUrl || '') || undefined,
+          nbi: String(coRaw.nbi_clearance_url || coRaw.nbiClearanceUrl || '') || undefined,
+          police: String(coRaw.police_clearance_url || coRaw.policeClearanceUrl || '') || undefined,
+          coe: String(coRaw.proof_of_separation_url || coRaw.proofOfSeparationUrl || '') || undefined,
+        });
+        const wsRaw = (anyD.work_setup || {}) as Record<string, unknown>;
+        const extractUrls = (val: unknown): string[] => {
+          if (!Array.isArray(val)) return [];
+          return val
+            .map((v) => (typeof v === 'string' ? v : (v as { url?: string })?.url || ''))
+            .filter(Boolean);
+        };
+        setWorkSetupUrls({
+          primary: extractUrls(wsRaw.primary_device_screenshot_urls ?? wsRaw.primary_device_screenshots),
+          secondary: extractUrls(wsRaw.secondary_device_screenshot_urls ?? wsRaw.secondary_device_screenshots),
+        });
+
         // Date Applied — prefer top-level field, fall back to legacy custom field.
         const daRaw = (d as { date_applied?: string }).date_applied;
         const daCustom = (d.custom_fields_raw || []).find((f) => f.id === 'A0IfC6bqqoM4Kv98HTYb')?.value;
@@ -710,7 +748,29 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
               editing ? (
                 <WorkSetupStep data={draftWorkSetup} onChange={setDraftWorkSetup} />
               ) : (
-                <WorkSetupView data={workSetup} />
+                <div className="space-y-6">
+                  <WorkSetupView data={workSetup} />
+                  {(workSetupUrls.primary.length > 0 || workSetupUrls.secondary.length > 0) && (
+                    <div className="space-y-3">
+                      {workSetupUrls.primary.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Primary Device Screenshots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {workSetupUrls.primary.map((u, i) => <FilePreviewLink key={`p-${i}`} url={u} />)}
+                          </div>
+                        </div>
+                      )}
+                      {workSetupUrls.secondary.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Secondary Device Screenshots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {workSetupUrls.secondary.map((u, i) => <FilePreviewLink key={`s-${i}`} url={u} />)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )
             )}
 
@@ -718,9 +778,20 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
               editing ? (
                 <ComplianceStep data={draftCompliance} onChange={setDraftCompliance} />
               ) : (
-                <ComplianceView data={compliance} />
+                <div className="space-y-6">
+                  <ComplianceView data={compliance} />
+                  {(complianceUrls.validId || complianceUrls.nbi || complianceUrls.police || complianceUrls.coe) && (
+                    <div className="flex flex-wrap gap-2">
+                      {complianceUrls.validId && <FilePreviewLink url={complianceUrls.validId} label="Valid ID" />}
+                      {complianceUrls.nbi && <FilePreviewLink url={complianceUrls.nbi} label="NBI Clearance" />}
+                      {complianceUrls.police && <FilePreviewLink url={complianceUrls.police} label="Police Clearance" />}
+                      {complianceUrls.coe && <FilePreviewLink url={complianceUrls.coe} label="Proof of Separation / COE" />}
+                    </div>
+                  )}
+                </div>
               )
             )}
+
           </div>
         </div>
       </main>
@@ -831,7 +902,7 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
           <div className="space-y-2">
             {([
               'available for training only',
-              'available for client pairing only',
+              'available for client matching only',
               'available for both client and training',
             ] as AttendanceAvailability[]).map((opt) => (
               <button

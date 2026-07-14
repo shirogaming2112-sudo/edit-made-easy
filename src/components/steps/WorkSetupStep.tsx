@@ -478,10 +478,52 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </div>
         </TabsContent>
       </Tabs>
+
+      {sampleOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-foreground/70 flex items-center justify-center p-4"
+          onClick={() => setSampleOpen(false)}
+        >
+          <div
+            className="bg-card rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <p className="text-sm font-semibold text-foreground">Sample Device Specification Screenshots</p>
+              <button
+                type="button"
+                onClick={() => setSampleOpen(false)}
+                className="p-1 text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-muted grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-foreground inline-flex items-center gap-1.5">
+                  <Monitor className="w-3.5 h-3.5" /> Windows — Settings ▸ System ▸ About
+                </p>
+                <img src={windowsSampleAsset.url} alt="Windows System About sample" className="w-full h-auto rounded-lg border border-border bg-card" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-foreground inline-flex items-center gap-1.5">
+                  <Laptop className="w-3.5 h-3.5" /> macOS — About This Mac
+                </p>
+                <img src={macSampleAsset.url} alt="macOS About This Mac sample" className="w-full h-auto rounded-lg border border-border bg-card" />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground px-4 py-3 border-t border-border">
+              Reference only — upload a screenshot of your own device's About page.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
 
   );
 });
+
 
 WorkSetupStep.displayName = 'WorkSetupStep';
 

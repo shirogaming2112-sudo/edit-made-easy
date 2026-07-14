@@ -15,6 +15,8 @@ export interface ComplianceFormData {
   proofOfSeparation?: File | null;
   nbiValidity: string;
   policeValidity: string;
+  canSubmitNbiPolice?: 'yes' | 'no' | '';
+  canSubmitCoe?: 'yes' | 'no' | '';
 }
 
 export const emptyCompliance: ComplianceFormData = {
@@ -25,7 +27,10 @@ export const emptyCompliance: ComplianceFormData = {
   proofOfSeparation: null,
   nbiValidity: '',
   policeValidity: '',
+  canSubmitNbiPolice: '',
+  canSubmitCoe: '',
 };
+
 
 interface ComplianceStepProps {
   data?: ComplianceFormData;
@@ -36,15 +41,18 @@ const PROOF_ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf
 
 const ComplianceStep = ({ data, onChange }: ComplianceStepProps) => {
   const [internal, setInternal] = useState<ComplianceFormData>(emptyCompliance);
-  const [canSubmitNbiPolice, setCanSubmitNbiPolice] = useState<'yes' | 'no' | ''>('');
-  const [canSubmitCoe, setCanSubmitCoe] = useState<'yes' | 'no' | ''>('');
   const [sampleOpen, setSampleOpen] = useState<null | 'nbi' | 'police'>(null);
   const value = data ?? internal;
+  const canSubmitNbiPolice = value.canSubmitNbiPolice ?? '';
+  const canSubmitCoe = value.canSubmitCoe ?? '';
   const update = <K extends keyof ComplianceFormData>(field: K, v: ComplianceFormData[K]) => {
     const next = { ...value, [field]: v };
     if (onChange) onChange(next);
     else setInternal(next);
   };
+  const setCanSubmitNbiPolice = (v: 'yes' | 'no' | '') => update('canSubmitNbiPolice', v);
+  const setCanSubmitCoe = (v: 'yes' | 'no' | '') => update('canSubmitCoe', v);
+
 
   const handleProofSelected = (files: File[]) => {
     const file = files[0];

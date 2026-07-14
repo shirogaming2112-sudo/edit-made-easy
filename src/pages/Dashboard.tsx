@@ -831,7 +831,7 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
           <div className="space-y-2">
             {([
               'available for training only',
-              'available for client pairing only',
+              'available for client matching only',
               'available for both client and training',
             ] as AttendanceAvailability[]).map((opt) => (
               <button

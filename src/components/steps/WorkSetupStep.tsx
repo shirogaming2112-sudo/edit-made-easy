@@ -2,8 +2,11 @@ import { useState, forwardRef, useImperativeHandle } from 'react';
 import FileDropzone from '@/components/wizard/FileDropzone';
 import RequiredLabel from '@/components/wizard/RequiredLabel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cpu, Loader2 } from 'lucide-react';
+import { Cpu, Loader2, Eye, X, Monitor, Laptop } from 'lucide-react';
 import { toast } from 'sonner';
+import windowsSampleAsset from '@/assets/device-sample-windows.png.asset.json';
+import macSampleAsset from '@/assets/device-sample-mac.png.asset.json';
+
 
 
 
@@ -27,6 +30,8 @@ export interface WorkSetupData {
   deviceScreenshots?: File[];
   secondaryDeviceScreenshots?: File[];
   detectedSpecs?: DetectedSpecs;
+  activeTab?: 'device' | 'isp';
+  consent?: boolean;
 }
 
 export const emptyWorkSetup: WorkSetupData = {
@@ -38,12 +43,15 @@ export const emptyWorkSetup: WorkSetupData = {
   secondaryISP: '',
   primaryISPSpeedtest: '',
   secondaryISPSpeedtest: '',
+  activeTab: 'device',
+  consent: false,
 };
 
 interface WorkSetupStepProps {
   data?: WorkSetupData;
   onChange?: (data: WorkSetupData) => void;
 }
+
 
 export interface WorkSetupStepHandle {
   /** Returns true if the wizard may advance to the next step, false if the step handled it internally (e.g. switched tabs). */
@@ -174,19 +182,22 @@ async function detectSystemSpecs(): Promise<DetectedSpecs> {
 const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ data, onChange }, ref) => {
   const [internal, setInternal] = useState<WorkSetupData>(emptyWorkSetup);
   const [detecting, setDetecting] = useState(false);
-  const [consent, setConsent] = useState(false);
-  const [tab, setTab] = useState<'device' | 'isp'>('device');
+  const [sampleOpen, setSampleOpen] = useState(false);
   const value = data ?? internal;
+  const tab: 'device' | 'isp' = value.activeTab ?? 'device';
+  const consent = value.consent ?? false;
 
   useImperativeHandle(ref, () => ({
     tryAdvance: () => {
       if (tab === 'device') {
-        setTab('isp');
+        const next = { ...value, activeTab: 'isp' as const };
+        if (onChange) onChange(next); else setInternal(next);
         return false;
       }
       return true;
     },
-  }), [tab]);
+  }), [tab, value, onChange]);
+
 
 
   const update = <K extends keyof WorkSetupData>(field: K, v: WorkSetupData[K]) => {

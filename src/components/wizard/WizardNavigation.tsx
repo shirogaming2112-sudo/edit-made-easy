@@ -14,6 +14,10 @@ interface WizardNavigationProps {
   checkingLabel?: string;
   /** Optional override for the primary button label when idle. */
   nextLabel?: string;
+  /** When true, hide the Next button entirely and show a hint instead. */
+  disableNext?: boolean;
+  /** Optional custom hint text shown when `disableNext` is true. */
+  disabledHint?: string;
 }
 
 const WizardNavigation = ({
@@ -27,6 +31,8 @@ const WizardNavigation = ({
   cooldownSeconds = 0,
   checkingLabel,
   nextLabel,
+  disableNext,
+  disabledHint,
 }: WizardNavigationProps) => {
   const cooling = cooldownSeconds > 0;
   const disabled = !!isSubmitting || cooling;
@@ -58,15 +64,21 @@ const WizardNavigation = ({
             Add More
           </button>
         )}
-        <button
-          onClick={onNext}
-          disabled={disabled}
-          className="btn-primary gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {(isSubmitting || cooling) && <Loader2 className="w-4 h-4 animate-spin" />}
-          {label}
-          {!isLast && !isSubmitting && !cooling && <ChevronRight className="w-4 h-4" />}
-        </button>
+        {disableNext ? (
+          <span className="text-xs text-muted-foreground italic">
+            {disabledHint ?? 'Fill in the required fields to continue.'}
+          </span>
+        ) : (
+          <button
+            onClick={onNext}
+            disabled={disabled}
+            className="btn-primary gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {(isSubmitting || cooling) && <Loader2 className="w-4 h-4 animate-spin" />}
+            {label}
+            {!isLast && !isSubmitting && !cooling && <ChevronRight className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

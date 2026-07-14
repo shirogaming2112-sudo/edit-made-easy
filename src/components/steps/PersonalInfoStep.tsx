@@ -245,11 +245,12 @@ const PersonalInfoStep = ({ data, onChange }: PersonalInfoStepProps) => {
         />
       </div>
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 mb-8">
-        <div className="shrink-0">
+        <div className="shrink-0 flex flex-col items-center">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-muted cursor-pointer hover:border-primary transition-colors overflow-hidden p-0"
+            title="Click to upload your profile picture"
           >
             {preview ? (
               <img src={preview} alt="Profile preview" className="w-full h-full object-cover" />
@@ -260,6 +261,9 @@ const PersonalInfoStep = ({ data, onChange }: PersonalInfoStepProps) => {
               </>
             )}
           </button>
+          <p className="mt-2 text-[11px] text-muted-foreground text-center max-w-[7.5rem] leading-tight">
+            Click to upload your profile picture (JPG/PNG).
+          </p>
           <input
             ref={fileInputRef}
             type="file"
@@ -271,12 +275,13 @@ const PersonalInfoStep = ({ data, onChange }: PersonalInfoStepProps) => {
             <button
               type="button"
               onClick={() => onChange({ ...data, photo: null })}
-              className="mt-2 text-xs text-muted-foreground hover:text-destructive block mx-auto"
+              className="mt-1 text-xs text-muted-foreground hover:text-destructive"
             >
               Remove
             </button>
           )}
         </div>
+
 
         <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-5">
           <div className="lg:col-span-3">

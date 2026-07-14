@@ -293,7 +293,7 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
           }).filter((x): x is { name: string; url: string } => !!x),
         );
         // Best-effort: photo URL and file URLs live on the raw dashboard payload.
-        const anyD = d as Record<string, unknown> & { personal_info?: Record<string, unknown>; compliance?: Record<string, unknown>; work_setup?: Record<string, unknown> };
+        const anyD = d as unknown as { personal_info?: Record<string, unknown>; compliance?: Record<string, unknown>; work_setup?: Record<string, unknown> };
         const piRaw = (anyD.personal_info || {}) as Record<string, unknown>;
         const photoUrl = String(piRaw.photo_url || piRaw.photoUrl || piRaw.profile_photo_url || '');
         if (photoUrl) setPhotoPreview(photoUrl);
@@ -748,7 +748,29 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
               editing ? (
                 <WorkSetupStep data={draftWorkSetup} onChange={setDraftWorkSetup} />
               ) : (
-                <WorkSetupView data={workSetup} />
+                <div className="space-y-6">
+                  <WorkSetupView data={workSetup} />
+                  {(workSetupUrls.primary.length > 0 || workSetupUrls.secondary.length > 0) && (
+                    <div className="space-y-3">
+                      {workSetupUrls.primary.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Primary Device Screenshots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {workSetupUrls.primary.map((u, i) => <FilePreviewLink key={`p-${i}`} url={u} />)}
+                          </div>
+                        </div>
+                      )}
+                      {workSetupUrls.secondary.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Secondary Device Screenshots</p>
+                          <div className="flex flex-wrap gap-2">
+                            {workSetupUrls.secondary.map((u, i) => <FilePreviewLink key={`s-${i}`} url={u} />)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )
             )}
 
@@ -756,9 +778,20 @@ const Dashboard = ({ variant = 'reapply' }: DashboardProps) => {
               editing ? (
                 <ComplianceStep data={draftCompliance} onChange={setDraftCompliance} />
               ) : (
-                <ComplianceView data={compliance} />
+                <div className="space-y-6">
+                  <ComplianceView data={compliance} />
+                  {(complianceUrls.validId || complianceUrls.nbi || complianceUrls.police || complianceUrls.coe) && (
+                    <div className="flex flex-wrap gap-2">
+                      {complianceUrls.validId && <FilePreviewLink url={complianceUrls.validId} label="Valid ID" />}
+                      {complianceUrls.nbi && <FilePreviewLink url={complianceUrls.nbi} label="NBI Clearance" />}
+                      {complianceUrls.police && <FilePreviewLink url={complianceUrls.police} label="Police Clearance" />}
+                      {complianceUrls.coe && <FilePreviewLink url={complianceUrls.coe} label="Proof of Separation / COE" />}
+                    </div>
+                  )}
+                </div>
               )
             )}
+
           </div>
         </div>
       </main>

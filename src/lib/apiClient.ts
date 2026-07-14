@@ -375,8 +375,9 @@ export async function updateWorkSetup(contactId: string, w: WorkSetup, _deviceSp
 export type AttendanceAction = 'login' | 'logout';
 export type AttendanceAvailability =
   | 'available for training only'
-  | 'available for client pairing only'
+  | 'available for client matching only'
   | 'available for both client and training';
+
 
 export async function submitAttendance(
   contactId: string,

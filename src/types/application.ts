@@ -100,6 +100,10 @@ export interface WorkSetup {
   /** Secondary (backup) device specification screenshot. */
   secondaryDeviceScreenshots: File[];
   systemSpecs: SystemSpecs;
+  /** Which tab was last open — persisted so the wizard remembers position. */
+  activeTab?: 'device' | 'isp';
+  /** Whether the user accepted the device specification notice. */
+  consent?: boolean;
 }
 
 export interface ComplianceData {
@@ -112,7 +116,11 @@ export interface ComplianceData {
   /** Renamed in UI to "Valid Until" — payload key kept for backward compatibility. */
   nbiValidity: string;
   policeValidity: string;
+  /** Persisted answers for the Yes/No gates. */
+  canSubmitNbiPolice?: 'yes' | 'no' | '';
+  canSubmitCoe?: 'yes' | 'no' | '';
 }
+
 
 export interface ApplicationData {
   email: string;

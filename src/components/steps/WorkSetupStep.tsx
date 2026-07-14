@@ -229,7 +229,7 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'device' | 'isp')} className="w-full">
+      <Tabs value={tab} onValueChange={(v) => update('activeTab', v as 'device' | 'isp')} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="device">Device Specification</TabsTrigger>
           <TabsTrigger value="isp">ISP Setup</TabsTrigger>
@@ -293,16 +293,34 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
           </div>
 
           <div className="space-y-2">
-            <RequiredLabel>Primary Device Specification Screenshot</RequiredLabel>
-            <p className="text-sm text-muted-foreground">Please upload screenshots of your Device Specification</p>
-            <FileDropzone onFilesSelected={(files) => update('deviceScreenshots', files)} label="device-spec" />
+            <div className="flex items-center justify-between gap-2">
+              <RequiredLabel>Primary Device Specification Screenshot</RequiredLabel>
+              <button
+                type="button"
+                onClick={() => setSampleOpen(true)}
+                className="btn-outline text-xs px-3 py-1.5 inline-flex items-center gap-2"
+              >
+                <Eye className="w-3.5 h-3.5" /> See example screenshots
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">Please upload screenshots of your Device Specification (Windows: Settings ▸ System ▸ About; macOS: About This Mac).</p>
+            <FileDropzone
+              onFilesSelected={(files) => update('deviceScreenshots', files)}
+              label="device-spec"
+              initialFiles={value.deviceScreenshots}
+            />
           </div>
 
           <div className="space-y-2">
             <label className="form-label">Secondary Device Specification Screenshot</label>
             <p className="text-sm text-muted-foreground">Optional — upload if you have a backup device.</p>
-            <FileDropzone onFilesSelected={(files) => update('secondaryDeviceScreenshots', files)} label="secondary-device-spec" />
+            <FileDropzone
+              onFilesSelected={(files) => update('secondaryDeviceScreenshots', files)}
+              label="secondary-device-spec"
+              initialFiles={value.secondaryDeviceScreenshots}
+            />
           </div>
+
 
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
             <div>
@@ -345,13 +363,14 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
               <input
                 type="checkbox"
                 checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
+                onChange={(e) => update('consent', e.target.checked)}
                 className="mt-0.5 w-4 h-4 text-primary border-border rounded"
               />
               <span className="text-xs text-foreground">
                 I have read and agree to the Device Specification Notice above.
               </span>
             </label>
+
 
             <div className="flex items-center justify-end">
               <button

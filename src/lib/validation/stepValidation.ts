@@ -44,6 +44,11 @@ export function isWorkSetupValid(w: WorkSetup): boolean {
     && nonEmpty(w.primaryISPSpeedtest);
 }
 
+/** Device tab only: minimum fields needed before advancing to the ISP tab. */
+export function isWorkSetupDeviceTabValid(w: WorkSetup): boolean {
+  return nonEmpty(w.primaryDevice) && (w.deviceScreenshots?.length ?? 0) > 0;
+}
+
 export function isComplianceValid(c: ComplianceData): boolean {
   return !!c.validId;
 }
@@ -54,7 +59,13 @@ export function isSubStepValid(subStep: number, values: ApplicationData): boolea
     case 2: return isEducationValid(values.education);
     case 3: return isProfessionalValid(values.professionalBackground);
     case 9: return isValuePropositionValid(values.personalInfo.valueProposition);
-    case 10: return isWorkSetupValid(values.workSetup);
+    case 10: {
+      const w = values.workSetup;
+      // On the Device tab, only require device-side fields so the user can
+      // advance to the ISP tab. On the ISP tab, enforce full validation.
+      const tab = (w as WorkSetup & { activeTab?: 'device' | 'isp' }).activeTab ?? 'device';
+      return tab === 'device' ? isWorkSetupDeviceTabValid(w) : isWorkSetupValid(w);
+    }
     case 11: return isComplianceValid(values.compliance);
     default: return true;
   }

@@ -4,8 +4,8 @@ import RequiredLabel from '@/components/wizard/RequiredLabel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Cpu, Loader2, Eye, X, Monitor, Laptop } from 'lucide-react';
 import { toast } from 'sonner';
-import windowsSampleAsset from '@/assets/device-sample-windows.png.asset.json';
-import macSampleAsset from '@/assets/device-sample-mac.png.asset.json';
+import windowsSampleImg from '@/assets/device-sample-windows.png';
+import macSampleImg from '@/assets/device-sample-mac.png';
 
 
 
@@ -504,13 +504,13 @@ const WorkSetupStep = forwardRef<WorkSetupStepHandle, WorkSetupStepProps>(({ dat
                 <p className="text-xs font-semibold text-foreground inline-flex items-center gap-1.5">
                   <Monitor className="w-3.5 h-3.5" /> Windows — Settings ▸ System ▸ About
                 </p>
-                <img src={windowsSampleAsset.url} alt="Windows System About sample" className="w-full h-auto rounded-lg border border-border bg-card" />
+                <img src={windowsSampleImg} alt="Windows System About sample" className="w-full h-auto rounded-lg border border-border bg-card" />
               </div>
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-foreground inline-flex items-center gap-1.5">
                   <Laptop className="w-3.5 h-3.5" /> macOS — About This Mac
                 </p>
-                <img src={macSampleAsset.url} alt="macOS About This Mac sample" className="w-full h-auto rounded-lg border border-border bg-card" />
+                <img src={macSampleImg} alt="macOS About This Mac sample" className="w-full h-auto rounded-lg border border-border bg-card" />
               </div>
             </div>
             <p className="text-xs text-muted-foreground px-4 py-3 border-t border-border">

@@ -461,6 +461,8 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
                   deviceScreenshots: values.workSetup.deviceScreenshots,
                   secondaryDeviceScreenshots: values.workSetup.secondaryDeviceScreenshots,
                   detectedSpecs: values.workSetup.systemSpecs,
+                  activeTab: values.workSetup.activeTab,
+                  consent: values.workSetup.consent,
                 }}
                 onChange={(d) => setField('workSetup', {
                   ...values.workSetup,
@@ -475,6 +477,8 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
                   deviceScreenshots: d.deviceScreenshots ?? [],
                   secondaryDeviceScreenshots: d.secondaryDeviceScreenshots ?? [],
                   systemSpecs: d.detectedSpecs ?? values.workSetup.systemSpecs,
+                  activeTab: d.activeTab,
+                  consent: d.consent,
                 })}
               />
             )}

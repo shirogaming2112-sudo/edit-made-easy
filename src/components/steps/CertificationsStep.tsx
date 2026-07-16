@@ -75,7 +75,6 @@ const CertificationsStep = ({ data, onChange, onSkip }: CertificationsStepProps)
               onClick={() => {
                 onChange([]);
                 setHasCerts(false);
-                onSkip?.();
               }}
               className="btn-outline px-6"
             >
@@ -83,6 +82,33 @@ const CertificationsStep = ({ data, onChange, onSkip }: CertificationsStepProps)
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (hasCerts === false) {
+    return (
+      <div className="animate-fade-in space-y-6">
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">No certifications added</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              You indicated you don't have any certifications or trainings yet. You can continue to the next step, or change your answer to add some.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setHasCerts(null)}
+            className="text-xs text-primary hover:underline font-medium whitespace-nowrap"
+          >
+            Change answer
+          </button>
+        </div>
+        {onSkip && (
+          <button type="button" onClick={onSkip} className="btn-primary w-full">
+            Continue to next step
+          </button>
+        )}
       </div>
     );
   }

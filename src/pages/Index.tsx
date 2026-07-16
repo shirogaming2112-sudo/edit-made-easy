@@ -492,6 +492,8 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
                   proofOfSeparation: values.compliance.proofOfSeparation,
                   nbiValidity: values.compliance.nbiValidity,
                   policeValidity: values.compliance.policeValidity,
+                  canSubmitNbiPolice: values.compliance.canSubmitNbiPolice ?? '',
+                  canSubmitCoe: values.compliance.canSubmitCoe ?? '',
                 }}
                 onChange={(d) => setField('compliance', {
                   authorizeBackgroundCheck: d.authorized,
@@ -501,6 +503,8 @@ const Index = ({ defaultReferralLink }: IndexProps) => {
                   proofOfSeparation: d.proofOfSeparation ?? null,
                   nbiValidity: d.nbiValidity,
                   policeValidity: d.policeValidity,
+                  canSubmitNbiPolice: d.canSubmitNbiPolice ?? '',
+                  canSubmitCoe: d.canSubmitCoe ?? '',
                 })}
               />
             )}

@@ -65,6 +65,8 @@ export const defaultApplicationData: ApplicationData = {
     proofOfSeparation: null,
     nbiValidity: '',
     policeValidity: '',
+    canSubmitNbiPolice: '',
+    canSubmitCoe: '',
   },
 };
 
